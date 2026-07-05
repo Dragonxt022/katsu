@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — <%= bills.title %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: bills.api }) %>
+  <main x-data="billsPage('<%= bills.api %>')" x-init="load()">
+    <h1><%= bills.title %></h1>
+    <div class="toolbar">
+      <% if (user.permissions.has(bills.createPerm)) { %>
+        <button class="btn" @click="openNew()">Nova conta</button>
+      <% } %>
+      <select x-model="status" @change="load()"
+              style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6">
+        <option value="">Todas</option>
+        <option value="aberta">Abertas</option>
+        <option value="<%= bills.settledStatus %>">Liquidadas</option>
+        <option value="cancelada">Canceladas</option>
+      </select>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Descrição</th><th><%= bills.partyLabel %></th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="b in rows" :key="b.id">
+          <tr>
+            <td x-text="b.description"></td>
+            <td class="muted" x-text="b.party ?? '—'"></td>
+            <td x-text="brl(b.amount_cents)"></td>
+            <td class="muted" x-text="b.due_date"></td>
+            <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has(bills.settlePerm)) { %>
+                <button class="btn small" x-show="b.status === 'aberta'" @click="settle(b)"><%= bills.settleLabel %></button>
+              <% } %>
+              <% if (user.permissions.has(bills.editPerm)) { %>
+                <button class="btn secondary small" x-show="b.status === 'aberta'" @click="cancel(b)">Cancelar</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1>Nova conta</h1>
+      <label>Descrição</label><input type="text" x-model="form.description" />
+      <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" />
+      <label>Vencimento</label><input type="date" x-model="form.dueDate" />
+      <label>Observações</label><input type="text" x-model="form.notes" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function billsPage(api) {
+      return {
+        rows: [], form: {}, status: 'aberta', error: '', dlgError: '',
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
+        async load() {
+          const r = await fetch(api + (this.status ? `?status=${this.status}` : ''));
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        async save() {
+          const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
+              dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        async settle(b) {
+          if (!confirm(`Confirmar "${b.description}" — ${this.brl(b.amount_cents)}?`)) return;
+          const r = await fetch(`${api}/${b.id}/settle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          if (r.ok) {
+            const d = await r.json();
+            if (!d.registeredInCash) alert('Atenção: nenhum caixa aberto — o valor não entrou na gaveta.');
+            this.load();
+          } else this.error = (await r.json()).error;
+        },
+        async cancel(b) {
+          if (!confirm(`Cancelar "${b.description}"?`)) return;
+          const r = await fetch(`${api}/${b.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelada' }) });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

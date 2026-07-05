@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Caixa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/finance/caixa' }) %>
+  <main x-data="cashPage()" x-init="load()">
+    <h1>Caixa</h1>
+
+    <template x-if="!open">
+      <div>
+        <p class="muted" style="margin-bottom:1rem">Nenhum caixa aberto.</p>
+        <% if (user.permissions.has('finance.cash.open')) { %>
+        <div class="toolbar">
+          <input type="text" placeholder="Fundo de troco (R$)" x-model="opening"
+                 style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+          <button class="btn" @click="openCash()">Abrir caixa</button>
+          <span class="error" x-text="error"></span>
+        </div>
+        <% } %>
+      </div>
+    </template>
+
+    <template x-if="open">
+      <div>
+        <div class="toolbar">
+          <span class="badge ok">aberto</span>
+          <span>Esperado na gaveta: <strong x-text="brl(expected)"></strong></span>
+          <% if (user.permissions.has('finance.cash.move')) { %>
+            <button class="btn secondary" @click="openMove('suprimento')">Suprimento</button>
+            <button class="btn secondary" @click="openMove('sangria')">Sangria</button>
+          <% } %>
+          <% if (user.permissions.has('finance.cash.close')) { %>
+            <button class="btn" @click="$refs.close.showModal()">Fechar caixa</button>
+          <% } %>
+          <span class="error" x-text="error"></span>
+        </div>
+        <table>
+          <thead><tr><th>Quando</th><th>Tipo</th><th>Direção</th><th>Valor</th><th>Descrição</th><th>Usuário</th></tr></thead>
+          <tbody>
+            <template x-for="m in movements" :key="m.id">
+              <tr>
+                <td class="muted" x-text="m.created_at"></td>
+                <td x-text="m.type"></td>
+                <td><span class="badge" :class="m.direction === 'entrada' ? 'ok' : 'off'" x-text="m.direction"></span></td>
+                <td x-text="brl(m.amount_cents)"></td>
+                <td class="muted" x-text="m.description ?? '—'"></td>
+                <td class="muted" x-text="m.username ?? '—'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <dialog x-ref="mv">
+      <h1 x-text="move.type === 'suprimento' ? 'Suprimento (entrada)' : 'Sangria (saída)'"></h1>
+      <label>Valor (R$)</label><input type="text" x-model="move.amount" placeholder="0,00" />
+      <label>Descrição</label><input type="text" x-model="move.description" />
+      <div class="error" x-text="mvError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.mv.close()">Cancelar</button>
+        <button class="btn" @click="saveMove()">Confirmar</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="close">
+      <h1>Fechar caixa</h1>
+      <p class="muted">Esperado: <strong x-text="brl(expected)"></strong></p>
+      <label>Valor contado na gaveta (R$)</label><input type="text" x-model="counted" placeholder="0,00" />
+      <label>Observações</label><input type="text" x-model="closeNotes" />
+      <div class="error" x-text="closeError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.close.close()">Cancelar</button>
+        <button class="btn" @click="closeCash()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function cashPage() {
+      return {
+        open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
+        move: {}, error: '', mvError: '', closeError: '',
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
+        async load() {
+          const r = await fetch('/api/finance/cash/current');
+          if (!r.ok) return;
+          const data = await r.json();
+          this.open = data.open; this.expected = data.expectedCents ?? 0;
+          if (this.open) {
+            const m = await fetch('/api/finance/cash/movements');
+            if (m.ok) this.movements = await m.json();
+          }
+        },
+        async openCash() {
+          const r = await fetch('/api/finance/cash/open', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ openingCents: this.cents(this.opening) }) });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        openMove(type) { this.move = { type, amount: '', description: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
+        async saveMove() {
+          const r = await fetch('/api/finance/cash/movement', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: this.move.type, amountCents: this.cents(this.move.amount), description: this.move.description || undefined }) });
+          if (r.ok) { this.$refs.mv.close(); this.load(); } else this.mvError = (await r.json()).error;
+        },
+        async closeCash() {
+          const r = await fetch('/api/finance/cash/close', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ countedCents: this.cents(this.counted), notes: this.closeNotes || undefined }) });
+          if (r.ok) {
+            const d = await r.json();
+            this.$refs.close.close();
+            alert(`Caixa fechado.\nEsperado: ${this.brl(d.expected)}\nContado: ${this.brl(d.counted)}\nDiferença: ${this.brl(d.difference)}`);
+            this.load();
+          } else this.closeError = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

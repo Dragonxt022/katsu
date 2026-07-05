@@ -1,0 +1,128 @@
+import { randomUUID } from 'node:crypto';
+import { Router, type Request } from 'express';
+import { getSqlite } from '../../core/database/connection';
+import { requirePermission } from '../../core/permissions/middleware';
+import { audit } from '../../core/audit/service';
+import { currentRegister, addMovement } from './cash';
+
+/**
+ * Fábrica de contas (a pagar / a receber) — mesma mecânica, direções opostas.
+ * Liquidar com caixa aberto gera movimento na gaveta (pagamento=saída, recebimento=entrada).
+ */
+export interface BillsConfig {
+  table: 'payables' | 'receivables';
+  entity: string;
+  permPrefix: string;
+  partyColumn: 'supplier_id' | 'customer_id';
+  partyTable: 'suppliers' | 'customers';
+  settleStatus: 'paga' | 'recebida';
+  settleAction: string;
+  settleDateCol: 'paid_at' | 'received_at';
+  settleCentsCol: 'paid_cents' | 'received_cents';
+  movementType: 'pagamento' | 'recebimento';
+  movementDirection: 'entrada' | 'saida';
+  settlePermission: string;
+}
+
+export function makeBillsRouter(cfg: BillsConfig): Router {
+  const router = Router();
+  const db = () => getSqlite();
+  const get = (id: string | number) =>
+    db().prepare(
+      `SELECT b.id, b.description, b.${cfg.partyColumn} AS party_id, p.name AS party,
+              b.amount_cents, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
+              b.${cfg.settleCentsCol} AS settled_cents, b.notes, b.updated_at
+       FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
+       WHERE b.id = ? AND b.deleted_at IS NULL`,
+    ).get(id);
+
+  router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const status = String(req.query.status ?? '');
+    const where = status ? 'AND b.status = ?' : '';
+    const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.due_date, b.status,
+                        b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents
+                 FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
+                 WHERE b.deleted_at IS NULL ${where} ORDER BY b.due_date, b.id`;
+    res.json(status ? db().prepare(sql).all(status) : db().prepare(sql).all());
+  });
+
+  router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {
+    const { description, amountCents, dueDate, partyId, notes } = req.body ?? {};
+    if (!description || !amountCents || !dueDate) {
+      res.status(400).json({ error: 'Campos obrigatórios: description, amountCents, dueDate.' });
+      return;
+    }
+    if (!Number.isInteger(amountCents) || amountCents <= 0) {
+      res.status(400).json({ error: 'Valor deve ser inteiro em centavos, maior que zero.' });
+      return;
+    }
+    const info = db().prepare(
+      `INSERT INTO ${cfg.table} (description, ${cfg.partyColumn}, amount_cents, due_date, notes, uuid)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(description, partyId ?? null, amountCents, dueDate, notes ?? null, randomUUID());
+    const created = get(Number(info.lastInsertRowid));
+    audit(req, 'criar', cfg.entity, Number(info.lastInsertRowid), null, created);
+    res.status(201).json(created);
+  });
+
+  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), (req, res) => {
+    const id = String(req.params.id);
+    const before = get(id) as { status: string } | undefined;
+    if (!before) {
+      res.status(404).json({ error: 'Conta não encontrada.' });
+      return;
+    }
+    if (before.status !== 'aberta') {
+      res.status(400).json({ error: 'Só contas abertas podem ser editadas.' });
+      return;
+    }
+    const { description, amountCents, dueDate, partyId, notes, status } = req.body ?? {};
+    if (status && status !== 'cancelada') {
+      res.status(400).json({ error: 'Via edição, o único status permitido é "cancelada".' });
+      return;
+    }
+    db().prepare(
+      `UPDATE ${cfg.table} SET description = COALESCE(?, description), amount_cents = COALESCE(?, amount_cents),
+         due_date = COALESCE(?, due_date), ${cfg.partyColumn} = COALESCE(?, ${cfg.partyColumn}),
+         notes = COALESCE(?, notes), status = COALESCE(?, status), updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(description ?? null, amountCents ?? null, dueDate ?? null, partyId ?? null, notes ?? null, status ?? null, id);
+    const after = get(id);
+    audit(req, status === 'cancelada' ? 'cancelar' : 'editar', cfg.entity, id, before, after);
+    res.json(after);
+  });
+
+  router.post('/:id/settle', requirePermission(cfg.settlePermission), (req: Request, res) => {
+    const id = String(req.params.id);
+    const bill = get(id) as { status: string; amount_cents: number; description: string } | undefined;
+    if (!bill) {
+      res.status(404).json({ error: 'Conta não encontrada.' });
+      return;
+    }
+    if (bill.status !== 'aberta') {
+      res.status(400).json({ error: `Conta já está "${bill.status}".` });
+      return;
+    }
+    const settledCents = req.body?.amountCents != null ? Math.round(req.body.amountCents) : bill.amount_cents;
+    if (!Number.isInteger(settledCents) || settledCents <= 0) {
+      res.status(400).json({ error: 'Valor inválido.' });
+      return;
+    }
+
+    const database = db();
+    const reg = currentRegister();
+    database.transaction(() => {
+      database.prepare(
+        `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = datetime('now'),
+           ${cfg.settleCentsCol} = ?, updated_at = datetime('now') WHERE id = ?`,
+      ).run(cfg.settleStatus, settledCents, id);
+      if (reg) {
+        addMovement(req, reg.id, cfg.movementDirection, cfg.movementType, settledCents, bill.description, cfg.entity, id);
+      }
+    })();
+    audit(req, cfg.settleAction, cfg.entity, id, bill, { settledCents, caixa: reg?.id ?? null });
+    res.json({ ok: true, settledCents, registeredInCash: !!reg });
+  });
+
+  return router;
+}
