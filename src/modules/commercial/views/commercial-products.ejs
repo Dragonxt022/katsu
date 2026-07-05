@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Produtos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/produtos' }) %>
+  <main x-data="productsPage()" x-init="load()">
+    <h1>Produtos</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('commercial.products.create')) { %>
+        <button class="btn" @click="openNew()">Novo produto</button>
+      <% } %>
+      <input type="text" placeholder="Buscar nome, código de barras ou SKU…" x-model="q" @input.debounce.400ms="load()"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6;min-width:280px" />
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Produto</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="p in rows" :key="p.id">
+          <tr>
+            <td>
+              <span x-text="p.name"></span>
+              <span class="badge off" x-show="p.track_stock && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
+            </td>
+            <td x-text="brl(p.price_cents)"></td>
+            <td class="muted" x-text="brl(p.cost_cents)"></td>
+            <td x-text="p.track_stock ? p.stock_qty : '—'"></td>
+            <td class="muted" x-text="p.unit"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('commercial.stock.move')) { %>
+                <button class="btn secondary small" @click="openMove(p)" x-show="p.track_stock">Estoque</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.products.edit')) { %>
+                <button class="btn secondary small" @click="openEdit(p)">Editar</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.products.delete')) { %>
+                <button class="btn small" @click="remove(p)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
+      <label>Nome</label><input type="text" x-model="form.name" />
+      <label>Código de barras</label><input type="text" x-model="form.barcode" />
+      <label>SKU</label><input type="text" x-model="form.sku" />
+      <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
+      <% if (user.permissions.has('commercial.products.price')) { %>
+        <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" />
+      <% } %>
+      <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" />
+      <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="mv">
+      <h1>Movimentar estoque</h1>
+      <p class="muted" x-text="`${move.name} — saldo atual: ${move.current}`"></p>
+      <label>Tipo</label>
+      <select x-model="move.type">
+        <option value="entrada">Entrada</option>
+        <option value="saida">Saída</option>
+        <option value="ajuste">Ajuste (define o saldo)</option>
+      </select>
+      <label x-text="move.type === 'ajuste' ? 'Novo saldo' : 'Quantidade'"></label>
+      <input type="number" step="any" x-model="move.qty" />
+      <label>Motivo</label><input type="text" x-model="move.reason" />
+      <div class="error" x-text="mvError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.mv.close()">Cancelar</button>
+        <button class="btn" @click="saveMove()">Confirmar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function productsPage() {
+      return {
+        rows: [], form: {}, move: {}, q: '', error: '', dlgError: '', mvError: '',
+        brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
+        async load() {
+          const r = await fetch('/api/commercial/products' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = { unit: 'un' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(p) {
+          this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
+            price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
+            minStock: p.min_stock };
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
+        async save() {
+          const body = { name: this.form.name, barcode: this.form.barcode || null, sku: this.form.sku || null,
+            unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined };
+          const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
+          const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
+          const isEdit = !!this.form.id;
+          const r = await fetch(isEdit ? `/api/commercial/products/${this.form.id}` : '/api/commercial/products', {
+            method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(p) {
+          if (!confirm(`Excluir "${p.name}"?`)) return;
+          const r = await fetch(`/api/commercial/products/${p.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        openMove(p) { this.move = { productId: p.id, name: p.name, current: p.stock_qty, type: 'entrada', qty: '', reason: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
+        async saveMove() {
+          const r = await fetch('/api/commercial/stock/move', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: this.move.productId, type: this.move.type, qty: Number(this.move.qty), reason: this.move.reason || undefined }),
+          });
+          if (r.ok) { this.$refs.mv.close(); this.load(); }
+          else this.mvError = (await r.json()).error ?? 'Erro na movimentação.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

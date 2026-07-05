@@ -16,12 +16,14 @@
     "smoke": "tsx src/dev.ts --smoke",
     "test:fase1": "tsx src/tests/fase1.ts",
     "test:fase1b": "tsx src/tests/fase1b.ts",
+    "test:shared": "tsx src/tests/shared.ts",
+    "test:fase3": "tsx src/tests/fase3.ts",
     "postinstall": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
   },
   "dependencies": {
     "alpinejs": "^3.14.0",
     "bcryptjs": "^3.0.2",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.44.0",
     "ejs": "^3.1.10",
     "express": "^5.1.0"

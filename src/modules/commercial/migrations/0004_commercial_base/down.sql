@@ -1,0 +1,11 @@
+DROP INDEX IF EXISTS idx_purchase_items_purchase;
+DROP INDEX IF EXISTS idx_movements_product;
+DROP INDEX IF EXISTS idx_products_category;
+DROP INDEX IF EXISTS idx_products_barcode;
+DROP TABLE IF EXISTS purchase_items;
+DROP TABLE IF EXISTS purchases;
+DROP TABLE IF EXISTS stock_movements;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS categories;

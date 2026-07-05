@@ -4,11 +4,15 @@ import { getSqlite } from './connection';
 
 /**
  * Migrator do Katsu.
- * Cada migration é uma pasta em drizzle/migrations/NNNN_nome/ com up.sql e down.sql.
+ * Fontes de migrations (contrato de módulo, KATSU_PLANO.md §4):
+ *   1. drizzle/migrations/NNNN_nome/            → Core
+ *   2. src/modules/<id>/migrations/NNNN_nome/   → módulos (Apps)
+ * Cada migration é uma pasta com up.sql e down.sql, ordenada globalmente pelo nome.
  * Regra do projeto: toda tabela criada deve ter uma coluna `comment`
  * (TEXT NOT NULL) com DEFAULT descrevendo o objetivo da tabela.
  */
-const MIGRATIONS_DIR = path.resolve(process.cwd(), 'drizzle', 'migrations');
+const CORE_MIGRATIONS = path.resolve(process.cwd(), 'drizzle', 'migrations');
+const MODULES_DIR = path.resolve(process.cwd(), 'src', 'modules');
 
 function ensureMetaTable(): void {
   getSqlite().exec(`
@@ -21,13 +25,24 @@ function ensureMetaTable(): void {
   `);
 }
 
-function listMigrationFolders(): string[] {
-  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
-  return fs
-    .readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
+/** name → pasta da migration, em todas as fontes. */
+function discoverMigrations(): Map<string, string> {
+  const found = new Map<string, string>();
+  const scan = (dir: string) => {
+    if (!fs.existsSync(dir)) return;
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!d.isDirectory()) continue;
+      if (found.has(d.name)) throw new Error(`Migration duplicada: ${d.name}`);
+      found.set(d.name, path.join(dir, d.name));
+    }
+  };
+  scan(CORE_MIGRATIONS);
+  if (fs.existsSync(MODULES_DIR)) {
+    for (const m of fs.readdirSync(MODULES_DIR, { withFileTypes: true })) {
+      if (m.isDirectory()) scan(path.join(MODULES_DIR, m.name, 'migrations'));
+    }
+  }
+  return new Map([...found.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
 function appliedNames(): Set<string> {
@@ -42,9 +57,9 @@ export function migrateUp(): string[] {
   const db = getSqlite();
   const applied = appliedNames();
   const executed: string[] = [];
-  for (const name of listMigrationFolders()) {
+  for (const [name, dir] of discoverMigrations()) {
     if (applied.has(name)) continue;
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, name, 'up.sql'), 'utf8');
+    const sql = fs.readFileSync(path.join(dir, 'up.sql'), 'utf8');
     db.transaction(() => {
       db.exec(sql);
       db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(name);
@@ -62,7 +77,9 @@ export function migrateDown(): string | null {
     | { name: string }
     | undefined;
   if (!last) return null;
-  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, last.name, 'down.sql'), 'utf8');
+  const dir = discoverMigrations().get(last.name);
+  if (!dir) throw new Error(`Pasta da migration não encontrada: ${last.name}`);
+  const sql = fs.readFileSync(path.join(dir, 'down.sql'), 'utf8');
   db.transaction(() => {
     db.exec(sql);
     db.prepare('DELETE FROM _migrations WHERE name = ?').run(last.name);
@@ -72,5 +89,5 @@ export function migrateDown(): string | null {
 
 export function migrationStatus(): { name: string; applied: boolean }[] {
   const applied = appliedNames();
-  return listMigrationFolders().map((name) => ({ name, applied: applied.has(name) }));
+  return [...discoverMigrations().keys()].map((name) => ({ name, applied: applied.has(name) }));
 }

@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import path from 'node:path';
-import { loadModules } from './modules/loader';
+import { loadModules, collectMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
@@ -28,9 +28,10 @@ function page(view: string, permission?: string) {
 /** Cria a API local (Express 5) + views EJS e carrega os módulos via manifesto. */
 export async function createServer(): Promise<KatsuServer> {
   const app = express();
+  const coreViews = path.resolve(process.cwd(), 'src', 'views');
 
   app.set('view engine', 'ejs');
-  app.set('views', path.resolve(process.cwd(), 'src', 'views'));
+  app.set('views', coreViews);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -54,16 +55,22 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/backup', requireAuth, backupRoutes);
   app.use('/api/license', requireAuth, licenseRoutes);
 
-  // Páginas
+  // Páginas do Core
   app.get('/', requireAuth, page('home'));
   app.get('/admin/usuarios', requireAuth, page('users', 'users.view'));
   app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));
   app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
 
-  // Módulos: toda rota de App exige autenticação por padrão
+  // Módulos: API (/api/<id>) e páginas (/app/<id>) exigem autenticação por padrão
   app.use('/api', requireAuth);
+  app.use('/app', requireAuth);
   const modules = await loadModules(app);
+
+  // Views dos módulos entram no lookup do EJS; menu dos manifestos vai para as views
+  const moduleViews = modules.map((m) => m.viewsDir).filter((v): v is string => !!v);
+  app.set('views', [coreViews, ...moduleViews]);
+  app.locals.moduleMenu = collectMenu(modules);
 
   // Licença (não trava o boot) e backup diário às 23:00
   const lic = validateLicense();

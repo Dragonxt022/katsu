@@ -14,6 +14,11 @@
   <% if (user.permissions.has('settings.view')) { %>
     <a href="/admin/configuracoes" class="<%= page === 'settings' ? 'active' : '' %>">Configurações</a>
   <% } %>
+  <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { %>
+    <% if (!item.permission || user.permissions.has(item.permission)) { %>
+      <a href="<%= item.href %>" class="<%= page === item.href ? 'active' : '' %>"><%= item.label %></a>
+    <% } %>
+  <% }) %>
   <div class="spacer"></div>
   <span class="user"><%= user.name %> (<%= user.roleSlug %>)</span>
   <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login')">Sair</button>

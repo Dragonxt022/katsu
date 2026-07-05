@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import type { Express, Router } from 'express';
 import { getSqlite } from '../database/connection';
-import type { LoadedModule, ModuleManifest } from './types';
+import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
 const MODULES_DIR = path.resolve(process.cwd(), 'src', 'modules');
@@ -35,6 +36,20 @@ function findManifest(dir: string): string | null {
   return null;
 }
 
+/** import() dinâmico: no Windows exige URL file:// (não aceita C:\...). */
+async function importFile(p: string) {
+  return import(pathToFileURL(p).href);
+}
+
+async function importRouter(dir: string, spec: string | Router): Promise<Router | undefined> {
+  if (typeof spec !== 'string') return spec;
+  const basePath = path.join(dir, spec);
+  const resolved = [basePath, `${basePath}.ts`, `${basePath}.js`].find((p) => fs.existsSync(p));
+  if (!resolved) throw new Error(`Arquivo de rotas não encontrado: ${basePath}`);
+  const mod = await importFile(resolved);
+  return mod.default ?? mod.router;
+}
+
 /** Upsert do módulo na tabela `modules` (registro de instalação). */
 function registerInDb(m: ModuleManifest): void {
   getSqlite()
@@ -55,6 +70,36 @@ function registerInDb(m: ModuleManifest): void {
     );
 }
 
+/** Registra as permissões do manifesto no catálogo e concede tudo ao Administrador. */
+function registerPermissions(m: ModuleManifest): void {
+  if (!m.permissions?.length) return;
+  const db = getSqlite();
+  const insertPerm = db.prepare(
+    `INSERT INTO permissions (key, description, module) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET description = excluded.description, module = excluded.module`,
+  );
+  const admin = db.prepare("SELECT id FROM roles WHERE slug = 'administrador'").get() as
+    | { id: number }
+    | undefined;
+  const grant = admin
+    ? db.prepare(
+        `INSERT INTO role_permissions (role_id, permission_key) VALUES (?, ?)
+         ON CONFLICT(role_id, permission_key) DO NOTHING`,
+      )
+    : null;
+  for (const p of m.permissions) {
+    const key = typeof p === 'string' ? p : p.key;
+    const description = typeof p === 'string' ? key : p.description;
+    insertPerm.run(key, description, m.id);
+    grant?.run(admin!.id, key);
+  }
+}
+
+/** Menu agregado de todos os módulos carregados (para a UI). */
+export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
+  return modules.flatMap((m) => m.manifest.menu ?? []);
+}
+
 /** Descobre, valida e carrega todos os módulos em src/modules/. */
 export async function loadModules(app: Express): Promise<LoadedModule[]> {
   if (!fs.existsSync(MODULES_DIR)) return [];
@@ -66,7 +111,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
     const manifestPath = findManifest(dir);
     if (!manifestPath) continue;
 
-    const imported = await import(manifestPath);
+    const imported = await importFile(manifestPath);
     const manifest: Partial<ModuleManifest> = imported.default ?? imported;
     validateManifest(manifest, dir);
 
@@ -75,17 +120,17 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
       continue;
     }
 
-    let router: Router | undefined;
-    if (typeof manifest.routes === 'string') {
-      const routesModule = await import(path.join(dir, manifest.routes));
-      router = routesModule.default ?? routesModule.router;
-    } else if (manifest.routes) {
-      router = manifest.routes;
-    }
+    const router = manifest.routes ? await importRouter(dir, manifest.routes) : undefined;
     if (router) app.use(`/api/${manifest.id}`, router);
 
+    const pagesRouter = manifest.pages ? await importRouter(dir, manifest.pages) : undefined;
+    if (pagesRouter) app.use(`/app/${manifest.id}`, pagesRouter);
+
+    const viewsDir = manifest.views ? path.join(dir, manifest.views) : undefined;
+
     registerInDb(manifest);
-    loaded.push({ manifest, dir, router });
+    registerPermissions(manifest);
+    loaded.push({ manifest, dir, router, pagesRouter, viewsDir });
     console.log(`[modules] carregado: ${manifest.id}@${manifest.version}`);
   }
   return loaded;

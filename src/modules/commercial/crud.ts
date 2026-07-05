@@ -1,0 +1,92 @@
+import { randomUUID } from 'node:crypto';
+import { Router } from 'express';
+import { getSqlite } from '../../core/database/connection';
+import { requirePermission } from '../../core/permissions/middleware';
+import { audit } from '../../core/audit/service';
+import { validateDocument } from '../../shared/documents';
+
+/**
+ * Fábrica de CRUD para cadastros simples do commercial (clientes, fornecedores).
+ * Aplica RBAC, auditoria (antes/depois), soft delete e validação de CPF/CNPJ.
+ */
+export interface CrudConfig {
+  table: string;
+  entity: string;
+  permPrefix: string;
+  fields: string[];
+  required: string[];
+}
+
+export function makeCrudRouter(cfg: CrudConfig): Router {
+  const router = Router();
+  const db = () => getSqlite();
+  const cols = ['id', ...cfg.fields, 'active', 'updated_at'].join(', ');
+  const get = (id: string) =>
+    db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE id = ? AND deleted_at IS NULL`).get(id);
+
+  router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    const rows = q
+      ? db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE deleted_at IS NULL AND name LIKE ? ORDER BY name`).all(`%${q}%`)
+      : db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE deleted_at IS NULL ORDER BY name`).all();
+    res.json(rows);
+  });
+
+  router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {
+    const body = req.body ?? {};
+    for (const f of cfg.required) {
+      if (!body[f]) {
+        res.status(400).json({ error: `Campo obrigatório: ${f}` });
+        return;
+      }
+    }
+    if (body.document && !validateDocument(String(body.document))) {
+      res.status(400).json({ error: 'CPF/CNPJ inválido.' });
+      return;
+    }
+    const values = cfg.fields.map((f) => body[f] ?? null);
+    const info = db()
+      .prepare(`INSERT INTO ${cfg.table} (${cfg.fields.join(', ')}, uuid) VALUES (${cfg.fields.map(() => '?').join(', ')}, ?)`)
+      .run(...values, randomUUID());
+    const created = get(String(info.lastInsertRowid));
+    audit(req, 'criar', cfg.entity, Number(info.lastInsertRowid), null, created);
+    res.status(201).json(created);
+  });
+
+  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), (req, res) => {
+    const id = String(req.params.id);
+    const before = get(id);
+    if (!before) {
+      res.status(404).json({ error: 'Registro não encontrado.' });
+      return;
+    }
+    const body = req.body ?? {};
+    if (body.document && !validateDocument(String(body.document))) {
+      res.status(400).json({ error: 'CPF/CNPJ inválido.' });
+      return;
+    }
+    const sets = cfg.fields.map((f) => `${f} = COALESCE(?, ${f})`).join(', ');
+    db()
+      .prepare(`UPDATE ${cfg.table} SET ${sets}, active = COALESCE(?, active), updated_at = datetime('now') WHERE id = ?`)
+      .run(...cfg.fields.map((f) => body[f] ?? null), body.active != null ? (body.active ? 1 : 0) : null, id);
+    const after = get(id);
+    audit(req, 'editar', cfg.entity, id, before, after);
+    res.json(after);
+  });
+
+  router.delete('/:id', requirePermission(`${cfg.permPrefix}.delete`), (req, res) => {
+    const id = String(req.params.id);
+    const before = get(id);
+    if (!before) {
+      res.status(404).json({ error: 'Registro não encontrado.' });
+      return;
+    }
+    db()
+      .prepare(`UPDATE ${cfg.table} SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
+      .run(id);
+    audit(req, 'excluir', cfg.entity, id, before, null);
+    res.json({ ok: true });
+  });
+
+  return router;
+}

@@ -13,6 +13,11 @@
   <main>
     <h1>Bem-vindo, <%= user.name %></h1>
     <div class="cards">
+      <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { %>
+        <% if (!item.permission || user.permissions.has(item.permission)) { %>
+          <a class="card" href="<%= item.href %>"><h2><%= item.label %></h2><p><%= item.description ?? '' %></p></a>
+        <% } %>
+      <% }) %>
       <% if (user.permissions.has('users.view')) { %>
         <a class="card" href="/admin/usuarios"><h2>Usuários</h2><p>Contas, cargos e acesso ao sistema.</p></a>
       <% } %>
@@ -26,7 +31,6 @@
         <a class="card" href="/admin/configuracoes"><h2>Configurações</h2><p>Parâmetros do sistema e licença.</p></a>
       <% } %>
     </div>
-    <p class="muted" style="margin-top:2rem">Os módulos (Apps) instalados aparecerão aqui.</p>
   </main>
 </body>
 </html>

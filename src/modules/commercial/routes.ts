@@ -1,0 +1,201 @@
+import { randomUUID } from 'node:crypto';
+import { Router } from 'express';
+import { getSqlite } from '../../core/database/connection';
+import { requirePermission } from '../../core/permissions/middleware';
+import { audit } from '../../core/audit/service';
+import { sumCents } from '../../shared/money';
+import { makeCrudRouter } from './crud';
+import { moveStock, listMovements, type MovementType } from './stock';
+
+const router = Router();
+const db = () => getSqlite();
+
+// ---------- Clientes e fornecedores (CRUD via fábrica) ----------
+router.use('/customers', makeCrudRouter({
+  table: 'customers', entity: 'customer', permPrefix: 'commercial.customers',
+  fields: ['name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
+}));
+router.use('/suppliers', makeCrudRouter({
+  table: 'suppliers', entity: 'supplier', permPrefix: 'commercial.suppliers',
+  fields: ['name', 'trade_name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
+}));
+
+// ---------- Categorias ----------
+router.get('/categories', requirePermission('commercial.products.view'), (_req, res) => {
+  res.json(db().prepare('SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name').all());
+});
+router.post('/categories', requirePermission('commercial.products.create'), (req, res) => {
+  const { name, parentId } = req.body ?? {};
+  if (!name) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  const info = db().prepare('INSERT INTO categories (name, parent_id, uuid) VALUES (?, ?, ?)').run(name, parentId ?? null, randomUUID());
+  audit(req, 'criar', 'category', Number(info.lastInsertRowid), null, { name });
+  res.status(201).json({ id: Number(info.lastInsertRowid), name });
+});
+
+// ---------- Produtos (RBAC fino: preço separado de edição) ----------
+const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
+  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.active, p.updated_at`;
+const getProduct = (id: string | number) =>
+  db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+                WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
+
+router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
+  const q = String(req.query.q ?? '').trim();
+  const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
+  const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+                WHERE p.deleted_at IS NULL ${where} ORDER BY p.name`;
+  res.json(q ? db().prepare(stmt).all(`%${q}%`, q, q) : db().prepare(stmt).all());
+});
+
+router.post('/products', requirePermission('commercial.products.create'), (req, res) => {
+  const b = req.body ?? {};
+  if (!b.name) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  if (b.priceCents != null && !req.user!.permissions.has('commercial.products.price')) {
+    res.status(403).json({ error: 'Permissão negada: commercial.products.price (definir preço).' });
+    return;
+  }
+  const info = db().prepare(
+    `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
+    b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
+    b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
+  );
+  const created = getProduct(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/products/:id', requirePermission('commercial.products.edit'), (req, res) => {
+  const id = String(req.params.id);
+  const before = getProduct(id) as { price_cents: number } | undefined;
+  if (!before) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const b = req.body ?? {};
+  // RBAC fino (plano Fase 1): alterar preço é permissão separada de editar produto
+  if (b.priceCents != null && Math.round(b.priceCents) !== before.price_cents
+      && !req.user!.permissions.has('commercial.products.price')) {
+    res.status(403).json({ error: 'Permissão negada: commercial.products.price (alterar preço).' });
+    return;
+  }
+  if (b.stockQty != null) {
+    res.status(400).json({ error: 'Saldo de estoque não é editável: use movimentações (/stock/move).' });
+    return;
+  }
+  db().prepare(
+    `UPDATE products SET
+       name = COALESCE(?, name), description = COALESCE(?, description), sku = COALESCE(?, sku),
+       barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
+       price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
+       track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
+       active = COALESCE(?, active), updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
+    b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
+    b.costCents != null ? Math.round(b.costCents) : null,
+    b.trackStock != null ? (b.trackStock ? 1 : 0) : null, b.minStock ?? null,
+    b.active != null ? (b.active ? 1 : 0) : null, id,
+  );
+  const after = getProduct(id);
+  audit(req, 'editar', 'product', id, before, after);
+  res.json(after);
+});
+
+router.delete('/products/:id', requirePermission('commercial.products.delete'), (req, res) => {
+  const id = String(req.params.id);
+  const before = getProduct(id);
+  if (!before) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  audit(req, 'excluir', 'product', id, before, null);
+  res.json({ ok: true });
+});
+
+// ---------- Estoque ----------
+router.get('/stock/movements', requirePermission('commercial.stock.view'), (req, res) => {
+  const productId = req.query.productId ? Number(req.query.productId) : undefined;
+  res.json(listMovements(productId, Math.min(Number(req.query.limit ?? 100), 500)));
+});
+
+router.post('/stock/move', requirePermission('commercial.stock.move'), (req, res) => {
+  const { productId, type, qty, reason } = req.body ?? {};
+  if (!productId || !['entrada', 'saida', 'ajuste'].includes(type)) {
+    res.status(400).json({ error: 'Campos obrigatórios: productId, type (entrada|saida|ajuste), qty.' });
+    return;
+  }
+  const result = moveStock(req, Number(productId), type as MovementType, Number(qty), reason);
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+// ---------- Compras (recebimento gera entrada de estoque) ----------
+router.get('/purchases', requirePermission('commercial.purchases.view'), (_req, res) => {
+  res.json(db().prepare(
+    `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.received_at, pu.updated_at
+     FROM purchases pu JOIN suppliers s ON s.id = pu.supplier_id
+     WHERE pu.deleted_at IS NULL ORDER BY pu.id DESC`,
+  ).all());
+});
+
+router.post('/purchases', requirePermission('commercial.purchases.create'), (req, res) => {
+  const { supplierId, items, notes } = req.body ?? {};
+  if (!supplierId || !Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: 'Campos obrigatórios: supplierId, items[{productId, qty, unitCostCents}].' });
+    return;
+  }
+  const database = db();
+  const supplier = database.prepare('SELECT id FROM suppliers WHERE id = ? AND deleted_at IS NULL').get(supplierId);
+  if (!supplier) {
+    res.status(400).json({ error: 'Fornecedor inexistente.' });
+    return;
+  }
+
+  let purchaseId = 0;
+  let error: string | null = null;
+  try {
+    database.transaction(() => {
+      const total = sumCents(...items.map((i: { qty: number; unitCostCents: number }) => Math.round(i.qty * i.unitCostCents)));
+      const info = database.prepare(
+        `INSERT INTO purchases (supplier_id, status, total_cents, notes, received_at, uuid)
+         VALUES (?, 'recebida', ?, ?, datetime('now'), ?)`,
+      ).run(supplierId, total, notes ?? null, randomUUID());
+      purchaseId = Number(info.lastInsertRowid);
+
+      for (const item of items) {
+        database.prepare(
+          `INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_cents) VALUES (?, ?, ?, ?)`,
+        ).run(purchaseId, item.productId, item.qty, Math.round(item.unitCostCents));
+        database.prepare(`UPDATE products SET cost_cents = ?, updated_at = datetime('now') WHERE id = ?`)
+          .run(Math.round(item.unitCostCents), item.productId);
+        const move = moveStock(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
+        if (!move.ok) throw new Error(move.error);
+      }
+    })();
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+
+  if (error) {
+    res.status(400).json({ error });
+    return;
+  }
+  audit(req, 'criar', 'purchase', purchaseId, null, { supplierId, items });
+  res.status(201).json({ id: purchaseId });
+});
+
+export default router;

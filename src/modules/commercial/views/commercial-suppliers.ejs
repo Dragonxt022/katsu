@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Fornecedores</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/fornecedores' }) %>
+  <main x-data="crudPage('/api/commercial/suppliers')" x-init="load()">
+    <h1>Fornecedores</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('commercial.suppliers.create')) { %>
+        <button class="btn" @click="openNew()">Novo fornecedor</button>
+      <% } %>
+      <input type="text" placeholder="Buscar…" x-model="q" @input.debounce.400ms="load()"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Razão social</th><th>Fantasia</th><th>CNPJ/CPF</th><th>Telefone</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="r in rows" :key="r.id">
+          <tr>
+            <td x-text="r.name"></td>
+            <td class="muted" x-text="r.trade_name ?? '—'"></td>
+            <td class="muted" x-text="r.document ?? '—'"></td>
+            <td class="muted" x-text="r.phone ?? '—'"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('commercial.suppliers.edit')) { %>
+                <button class="btn secondary small" @click="openEdit(r)">Editar</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.suppliers.delete')) { %>
+                <button class="btn small" @click="remove(r)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1 x-text="form.id ? 'Editar fornecedor' : 'Novo fornecedor'"></h1>
+      <label>Razão social</label><input type="text" x-model="form.name" />
+      <label>Nome fantasia</label><input type="text" x-model="form.trade_name" />
+      <label>CNPJ/CPF</label><input type="text" x-model="form.document" />
+      <label>Telefone</label><input type="text" x-model="form.phone" />
+      <label>E-mail</label><input type="text" x-model="form.email" />
+      <label>Endereço</label><input type="text" x-model="form.address" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script src="/js/crud-page.js"></script>
+</body>
+</html>
