@@ -10,28 +10,83 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'home' }) %>
-  <main>
-    <h1>Bem-vindo, <%= user.name %></h1>
-    <div class="cards">
-      <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { %>
-        <% if (!item.permission || user.permissions.has(item.permission)) { %>
-          <a class="card" href="<%= item.href %>"><h2><%= item.label %></h2><p><%= item.description ?? '' %></p></a>
-        <% } %>
-      <% }) %>
-      <% if (user.permissions.has('users.view')) { %>
-        <a class="card" href="/admin/usuarios"><h2>Usuários</h2><p>Contas, cargos e acesso ao sistema.</p></a>
-      <% } %>
-      <% if (user.permissions.has('audit.view')) { %>
-        <a class="card" href="/admin/auditoria"><h2>Auditoria</h2><p>Quem fez o quê, quando e de onde.</p></a>
-      <% } %>
-      <% if (user.permissions.has('backup.view')) { %>
-        <a class="card" href="/admin/backup"><h2>Backup</h2><p>Cópias de segurança do banco local.</p></a>
-      <% } %>
-      <% if (user.permissions.has('settings.view')) { %>
-        <a class="card" href="/admin/configuracoes"><h2>Configurações</h2><p>Parâmetros do sistema e licença.</p></a>
-      <% } %>
+
+  <main x-data="homePage()" x-init="init()">
+    <div class="greeting">
+      <h1><span x-text="greeting + ', '"></span><%= user.name %></h1>
+      <p>Comida que alimenta, sistema que organiza.</p>
+    </div>
+
+    <div class="search-wrap">
+      <img class="search-icon" src="/icons/search.svg" width="18" height="18" alt="" />
+      <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
+    </div>
+
+    <div class="app-grid">
+      <%
+        var visibleItems = [];
+        (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) {
+          if (!item.permission || user.permissions.has(item.permission)) {
+            visibleItems.push(item);
+      %>
+          <a class="app-card" href="<%= item.href %>" x-show="matches('<%= item.label %>')">
+            <img class="card-icon" src="/icons/<%= item.icon %>.svg" alt="" width="40" height="40" />
+            <span class="card-title"><%= item.label %></span>
+            <span class="card-desc"><%= item.description ?? '' %></span>
+          </a>
+      <%
+          }
+        });
+        // admin links
+        var adminItems = [];
+        if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', description: 'Contas, cargos e acesso.' });
+        if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', description: 'Quem fez o quê, quando e de onde.' });
+        if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', description: 'Cópias de segurança do banco.' });
+        if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
+        adminItems.forEach(function (item) {
+          visibleItems.push(item);
+      %>
+          <a class="app-card" href="<%= item.href %>" x-show="matches('<%= item.label %>')">
+            <img class="card-icon" src="/icons/<%= item.icon %>.svg" alt="" width="40" height="40" />
+            <span class="card-title"><%= item.label %></span>
+            <span class="card-desc"><%= item.description %></span>
+          </a>
+      <%
+        });
+        var rem = visibleItems.length % 4;
+        if (rem > 0) {
+          for (var i = 0; i < 4 - rem; i++) {
+      %>
+          <div class="app-card" style="visibility:hidden;border-color:transparent;box-shadow:none;cursor:default;pointer-events:none"></div>
+      <%
+          }
+        }
+      %>
     </div>
   </main>
+
+  <button class="fab" title="Chat">
+    <img src="/icons/chat.svg" width="22" height="22" alt="" />
+  </button>
+
+  <script>
+    function homePage() {
+      return {
+        greeting: '',
+        q: '',
+        init() {
+          const h = new Date().getHours();
+          if (h < 12) this.greeting = 'Bom dia';
+          else if (h < 18) this.greeting = 'Boa tarde';
+          else this.greeting = 'Boa noite';
+        },
+        matches(label) {
+          if (!this.q) return true;
+          return label.toLowerCase().includes(this.q.toLowerCase());
+        },
+        filter() {},
+      };
+    }
+  </script>
 </body>
 </html>
-
