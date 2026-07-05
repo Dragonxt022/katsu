@@ -25,10 +25,10 @@ const manifest: ModuleManifest = {
   views: './views',
   migrations: './migrations',
   menu: [
-    { label: 'Caixa', href: '/app/finance/caixa', permission: 'finance.cash.view', description: 'Abertura, fechamento, suprimento e sangria.' },
-    { label: 'A pagar', href: '/app/finance/pagar', permission: 'finance.payables.view', description: 'Contas a pagar e vencimentos.' },
-    { label: 'A receber', href: '/app/finance/receber', permission: 'finance.receivables.view', description: 'Contas a receber e vencimentos.' },
-    { label: 'Fluxo', href: '/app/finance/fluxo', permission: 'finance.reports.view', description: 'Fluxo de caixa por dia.' },
+    { label: 'Caixa', href: '/app/finance/caixa', permission: 'finance.cash.view', description: 'Abertura, fechamento, suprimento e sangria.', icon: 'wallet' },
+    { label: 'A pagar', href: '/app/finance/pagar', permission: 'finance.payables.view', description: 'Contas a pagar e vencimentos.', icon: 'credit-card' },
+    { label: 'A receber', href: '/app/finance/receber', permission: 'finance.receivables.view', description: 'Contas a receber e vencimentos.', icon: 'dollar-sign' },
+    { label: 'Fluxo', href: '/app/finance/fluxo', permission: 'finance.reports.view', description: 'Fluxo de caixa por dia.', icon: 'chart' },
   ],
 };
 

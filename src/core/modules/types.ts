@@ -6,6 +6,7 @@ export interface ModuleMenuItem {
   href: string;
   permission?: string;
   description?: string;
+  icon?: string;
 }
 
 /** Contrato do module.manifest.ts (KATSU_PLANO.md §4). */

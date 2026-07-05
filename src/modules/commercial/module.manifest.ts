@@ -29,9 +29,9 @@ const manifest: ModuleManifest = {
   views: './views',
   migrations: './migrations',
   menu: [
-    { label: 'Clientes', href: '/app/commercial/clientes', permission: 'commercial.customers.view', description: 'Cadastro de clientes.' },
-    { label: 'Fornecedores', href: '/app/commercial/fornecedores', permission: 'commercial.suppliers.view', description: 'Cadastro de fornecedores.' },
-    { label: 'Produtos', href: '/app/commercial/produtos', permission: 'commercial.products.view', description: 'Catálogo, preços e estoque.' },
+    { label: 'Clientes', href: '/app/commercial/clientes', permission: 'commercial.customers.view', description: 'Cadastro de clientes.', icon: 'users' },
+    { label: 'Fornecedores', href: '/app/commercial/fornecedores', permission: 'commercial.suppliers.view', description: 'Cadastro de fornecedores.', icon: 'truck' },
+    { label: 'Produtos', href: '/app/commercial/produtos', permission: 'commercial.products.view', description: 'Catálogo, preços e estoque.', icon: 'package' },
   ],
 };
 
