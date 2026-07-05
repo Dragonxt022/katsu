@@ -13,6 +13,11 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'audit.view', description: 'Visualizar log de auditoria' },
   { key: 'settings.view', description: 'Visualizar configurações' },
   { key: 'settings.edit', description: 'Editar configurações' },
+  { key: 'backup.view', description: 'Visualizar histórico de backups' },
+  { key: 'backup.run', description: 'Executar backup manual' },
+  { key: 'backup.restore', description: 'Restaurar backup' },
+  { key: 'license.view', description: 'Visualizar licença' },
+  { key: 'license.edit', description: 'Alterar licença' },
 ];
 
 const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }[] = [
@@ -20,7 +25,7 @@ const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }
   {
     slug: 'gerente',
     name: 'Gerente',
-    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view'],
+    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view', 'backup.view', 'backup.run'],
   },
   { slug: 'operador', name: 'Operador', permissions: [] },
   { slug: 'caixa', name: 'Caixa', permissions: [] },

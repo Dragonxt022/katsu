@@ -1,15 +1,28 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import path from 'node:path';
 import { loadModules } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
-import usersRoutes from '../core/users/routes';
+import usersRoutes from './users/routes';
 import auditRoutes from './audit/routes';
+import settingsRoutes from './config/routes';
+import backupRoutes from './backup/routes';
+import licenseRoutes from './license/routes';
+import { startBackupScheduler } from './backup/service';
+import { validateLicense } from './license/service';
 
 export interface KatsuServer {
   app: Express;
   modules: LoadedModule[];
+}
+
+/** Página protegida por permissão: sem permissão → volta para a home. */
+function page(view: string, permission?: string) {
+  return (req: Request, res: Response, _next: NextFunction) => {
+    if (permission && !req.user!.permissions.has(permission)) return res.redirect('/');
+    res.render(view, { user: req.user });
+  };
 }
 
 /** Cria a API local (Express 5) + views EJS e carrega os módulos via manifesto. */
@@ -34,18 +47,28 @@ export async function createServer(): Promise<KatsuServer> {
     res.render('login');
   });
 
-  // Rotas do Core protegidas (auth + RBAC por rota)
+  // API do Core (auth + RBAC por rota)
   app.use('/api/users', requireAuth, usersRoutes);
   app.use('/api/audit', requireAuth, auditRoutes);
+  app.use('/api/settings', requireAuth, settingsRoutes);
+  app.use('/api/backup', requireAuth, backupRoutes);
+  app.use('/api/license', requireAuth, licenseRoutes);
 
-  // UI
-  app.get('/', requireAuth, (req, res) => {
-    res.render('home', { user: req.user });
-  });
+  // Páginas
+  app.get('/', requireAuth, page('home'));
+  app.get('/admin/usuarios', requireAuth, page('users', 'users.view'));
+  app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));
+  app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
+  app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
 
   // Módulos: toda rota de App exige autenticação por padrão
   app.use('/api', requireAuth);
   const modules = await loadModules(app);
+
+  // Licença (não trava o boot) e backup diário às 23:00
+  const lic = validateLicense();
+  console.log(`[license] ${lic.status}: ${lic.message}`);
+  startBackupScheduler();
 
   return { app, modules };
 }

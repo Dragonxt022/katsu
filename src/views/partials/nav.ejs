@@ -1,0 +1,20 @@
+<header class="nav" x-data>
+  <img src="/katsu_logo.png" alt="Katsu" />
+  <strong>Katsu</strong>
+  <a href="/" class="<%= page === 'home' ? 'active' : '' %>">Início</a>
+  <% if (user.permissions.has('users.view')) { %>
+    <a href="/admin/usuarios" class="<%= page === 'users' ? 'active' : '' %>">Usuários</a>
+  <% } %>
+  <% if (user.permissions.has('audit.view')) { %>
+    <a href="/admin/auditoria" class="<%= page === 'audit' ? 'active' : '' %>">Auditoria</a>
+  <% } %>
+  <% if (user.permissions.has('backup.view')) { %>
+    <a href="/admin/backup" class="<%= page === 'backup' ? 'active' : '' %>">Backup</a>
+  <% } %>
+  <% if (user.permissions.has('settings.view')) { %>
+    <a href="/admin/configuracoes" class="<%= page === 'settings' ? 'active' : '' %>">Configurações</a>
+  <% } %>
+  <div class="spacer"></div>
+  <span class="user"><%= user.name %> (<%= user.roleSlug %>)</span>
+  <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login')">Sair</button>
+</header>

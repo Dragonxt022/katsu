@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Usuários</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'users' }) %>
+  <main x-data="usersPage()" x-init="load()">
+    <h1>Usuários</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('users.create')) { %>
+        <button class="btn" @click="openNew()">Novo usuário</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Nome</th><th>Usuário</th><th>Cargo</th><th>Status</th><th>Último login</th><th></th></tr>
+      </thead>
+      <tbody>
+        <template x-for="u in users" :key="u.id">
+          <tr>
+            <td x-text="u.name"></td>
+            <td x-text="u.username"></td>
+            <td x-text="u.role"></td>
+            <td><span class="badge" :class="u.active ? 'ok' : 'off'" x-text="u.active ? 'ativo' : 'inativo'"></span></td>
+            <td class="muted" x-text="u.last_login_at ?? '—'"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('users.edit')) { %>
+                <button class="btn secondary small" @click="openEdit(u)">Editar</button>
+              <% } %>
+              <% if (user.permissions.has('users.delete')) { %>
+                <button class="btn small" @click="remove(u)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1 x-text="form.id ? 'Editar usuário' : 'Novo usuário'"></h1>
+      <label>Nome</label><input type="text" x-model="form.name" />
+      <label>Usuário</label><input type="text" x-model="form.username" :disabled="!!form.id" />
+      <label>E-mail</label><input type="text" x-model="form.email" />
+      <label>Cargo</label>
+      <select x-model="form.roleSlug">
+        <template x-for="r in roles"><option :value="r" x-text="r" :selected="r === form.roleSlug"></option></template>
+      </select>
+      <label x-text="form.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'"></label>
+      <input type="password" x-model="form.password" />
+      <template x-if="form.id">
+        <label class="remember" style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem">
+          <input type="checkbox" x-model="form.active" style="width:auto" /> Ativo
+        </label>
+      </template>
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function usersPage() {
+      return {
+        users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
+        form: {}, error: '', dlgError: '',
+        async load() {
+          const r = await fetch('/api/users');
+          if (r.ok) this.users = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = { roleSlug: 'operador' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(u) {
+          this.form = { id: u.id, name: u.name, username: u.username, email: u.email ?? '', roleSlug: u.role, active: !!u.active, password: '' };
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const body = { ...this.form };
+          if (isEdit && !body.password) delete body.password;
+          const r = await fetch(isEdit ? `/api/users/${this.form.id}` : '/api/users', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(u) {
+          if (!confirm(`Excluir o usuário "${u.name}"?`)) return;
+          const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

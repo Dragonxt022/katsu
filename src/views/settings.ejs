@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Configurações</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'settings' }) %>
+  <main x-data="settingsPage()" x-init="load()">
+    <h1>Configurações</h1>
+
+    <% if (user.permissions.has('license.view')) { %>
+    <section style="margin-bottom:2rem">
+      <h2 style="font-size:1.05rem;margin-bottom:.6rem">Licença</h2>
+      <table>
+        <tbody>
+          <tr><th>Status</th><td><span class="badge" :class="license.status === 'valida' ? 'ok' : 'off'" x-text="license.message"></span></td></tr>
+          <tr><th>Machine ID</th><td class="muted" x-text="license.machineId"></td></tr>
+          <tr><th>Plano</th><td x-text="license.plan ?? '—'"></td></tr>
+          <tr><th>Válida até</th><td x-text="license.validUntil ?? '—'"></td></tr>
+        </tbody>
+      </table>
+    </section>
+    <% } %>
+
+    <div class="toolbar" x-show="canEdit">
+      <button class="btn" @click="openNew()">Nova configuração</button>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Chave</th><th>Valor</th><th>Atualizada</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="s in settings" :key="s.key">
+          <tr>
+            <td x-text="s.key"></td>
+            <td x-text="s.value ?? '—'"></td>
+            <td class="muted" x-text="s.updated_at"></td>
+            <td style="text-align:right">
+              <button class="btn secondary small" x-show="canEdit" @click="openEdit(s)">Editar</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1>Configuração</h1>
+      <label>Chave</label><input type="text" x-model="form.key" :disabled="form.locked" />
+      <label>Valor</label><input type="text" x-model="form.value" />
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function settingsPage() {
+      return {
+        settings: [], license: {}, form: {}, error: '',
+        canEdit: <%= user.permissions.has('settings.edit') ? 'true' : 'false' %>,
+        async load() {
+          const r = await fetch('/api/settings');
+          if (r.ok) this.settings = await r.json();
+          <% if (user.permissions.has('license.view')) { %>
+          const l = await fetch('/api/license');
+          if (l.ok) this.license = await l.json();
+          <% } %>
+        },
+        openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },
+        openEdit(s) { this.form = { key: s.key, value: s.value ?? '', locked: true }; this.$refs.dlg.showModal(); },
+        async save() {
+          if (!this.form.key) return;
+          const r = await fetch(`/api/settings/${encodeURIComponent(this.form.key)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.form.value }),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

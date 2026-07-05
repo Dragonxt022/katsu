@@ -1,0 +1,40 @@
+* { box-sizing: border-box; margin: 0; }
+body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; min-height: 100vh; }
+header.nav { display: flex; align-items: center; gap: .8rem; padding: .8rem 1.5rem;
+  background: #1a1d24; border-bottom: 1px solid #2c313c; }
+header.nav img { width: 32px; }
+header.nav a { color: #9aa0aa; text-decoration: none; font-size: .9rem; padding: .3rem .6rem; border-radius: 6px; }
+header.nav a:hover, header.nav a.active { color: #fff; background: #242936; }
+header.nav .spacer { flex: 1; }
+header.nav .user { font-size: .9rem; color: #9aa0aa; }
+header.nav button { border: 0; background: transparent; color: #e5484d; cursor: pointer; font-size: .9rem; }
+main { padding: 2rem 1.5rem; max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 1.3rem; margin-bottom: 1.2rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; background: #1a1d24; border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: .6rem .9rem; font-size: .9rem; border-bottom: 1px solid #242936; }
+th { color: #9aa0aa; font-weight: 500; background: #171a20; }
+tr:last-child td { border-bottom: 0; }
+.btn { border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .9rem; cursor: pointer;
+  background: #e5484d; color: #fff; font-weight: 600; }
+.btn:hover { background: #d93a40; }
+.btn.secondary { background: #242936; color: #e6e6e6; }
+.btn.small { padding: .25rem .6rem; font-size: .8rem; }
+.toolbar { display: flex; gap: .8rem; margin-bottom: 1rem; align-items: center; }
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 99px; font-size: .75rem; }
+.badge.ok { background: #113b2b; color: #4ade80; }
+.badge.off { background: #3b1113; color: #ff8589; }
+dialog { background: #1a1d24; color: #e6e6e6; border: 1px solid #2c313c; border-radius: 12px;
+  padding: 1.5rem; width: 380px; }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog label { display: block; font-size: .85rem; margin: .7rem 0 .25rem; color: #9aa0aa; }
+dialog input, dialog select { width: 100%; padding: .55rem .7rem; border-radius: 8px;
+  border: 1px solid #2c313c; background: #12141a; color: #e6e6e6; font-size: .95rem; }
+dialog .actions { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1.2rem; }
+.error { color: #ff8589; font-size: .85rem; min-height: 1.2em; margin-top: .5rem; }
+.muted { color: #9aa0aa; font-size: .85rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.card { background: #1a1d24; border: 1px solid #2c313c; border-radius: 12px; padding: 1.2rem;
+  text-decoration: none; color: #e6e6e6; display: block; }
+.card:hover { border-color: #e5484d; }
+.card h2 { font-size: 1rem; margin-bottom: .3rem; }
+.card p { font-size: .85rem; color: #9aa0aa; }

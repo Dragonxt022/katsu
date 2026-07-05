@@ -15,6 +15,7 @@
     "db:status": "tsx src/core/database/cli.ts status",
     "smoke": "tsx src/dev.ts --smoke",
     "test:fase1": "tsx src/tests/fase1.ts",
+    "test:fase1b": "tsx src/tests/fase1b.ts",
     "postinstall": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
   },
   "dependencies": {

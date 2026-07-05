@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Backup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'backup' }) %>
+  <main x-data="backupPage()" x-init="load()">
+    <h1>Backup</h1>
+    <p class="muted" style="margin-bottom:1rem">Backup automático diário às 23:00. Destino configurável em Configurações (chave <code>backup.dir</code>).</p>
+    <div class="toolbar">
+      <% if (user.permissions.has('backup.run')) { %>
+        <button class="btn" @click="run()" x-text="running ? 'Executando…' : 'Fazer backup agora'"></button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Quando</th><th>Origem</th><th>Arquivo</th><th>Tamanho</th><th>Checksum</th><th></th></tr>
+      </thead>
+      <tbody>
+        <template x-for="b in backups" :key="b.id">
+          <tr>
+            <td class="muted" x-text="b.created_at"></td>
+            <td x-text="b.trigger"></td>
+            <td class="muted" x-text="b.file_path"></td>
+            <td x-text="(b.size_bytes / 1024).toFixed(1) + ' KB'"></td>
+            <td class="muted" x-text="b.checksum.slice(0, 12) + '…'"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('backup.restore')) { %>
+                <button class="btn small" @click="restore(b)">Restaurar</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </main>
+  <script>
+    function backupPage() {
+      return {
+        backups: [], error: '', running: false,
+        async load() {
+          const r = await fetch('/api/backup');
+          if (r.ok) this.backups = await r.json();
+        },
+        async run() {
+          this.running = true; this.error = '';
+          const r = await fetch('/api/backup', { method: 'POST' });
+          this.running = false;
+          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Falha no backup.';
+        },
+        async restore(b) {
+          if (!confirm('Restaurar este backup? Os dados atuais serão substituídos.')) return;
+          const r = await fetch(`/api/backup/${b.id}/restore`, { method: 'POST' });
+          if (r.ok) alert('Backup restaurado com sucesso.');
+          else this.error = (await r.json()).error ?? 'Falha na restauração.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS license;
+DROP TABLE IF EXISTS backups;

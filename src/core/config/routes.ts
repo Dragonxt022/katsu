@@ -1,0 +1,30 @@
+import { randomUUID } from 'node:crypto';
+import { Router } from 'express';
+import { getSqlite } from '../database/connection';
+import { requirePermission } from '../permissions/middleware';
+import { audit } from '../audit/service';
+
+const router = Router();
+
+router.get('/', requirePermission('settings.view'), (_req, res) => {
+  const rows = getSqlite()
+    .prepare('SELECT key, value, updated_at FROM settings WHERE deleted_at IS NULL ORDER BY key')
+    .all();
+  res.json(rows);
+});
+
+router.put('/:key', requirePermission('settings.edit'), (req, res) => {
+  const key = String(req.params.key);
+  const { value } = req.body ?? {};
+  const db = getSqlite();
+  const before = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(key);
+  db.prepare(
+    `INSERT INTO settings (key, value, uuid) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now'), deleted_at = NULL`,
+  ).run(key, value != null ? String(value) : null, randomUUID());
+  const after = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(key);
+  audit(req, 'editar', 'setting', key, before ?? null, after);
+  res.json(after);
+});
+
+export default router;

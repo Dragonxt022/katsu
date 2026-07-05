@@ -5,29 +5,28 @@
   <title>Katsu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/katsu_logo.png" />
+  <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; min-height: 100vh; }
-    header { display: flex; align-items: center; gap: .8rem; padding: .8rem 1.5rem;
-             background: #1a1d24; border-bottom: 1px solid #2c313c; }
-    header img { width: 32px; }
-    header .spacer { flex: 1; }
-    header .user { font-size: .9rem; color: #9aa0aa; }
-    header button { border: 0; background: transparent; color: #e5484d; cursor: pointer; font-size: .9rem; }
-    main { padding: 2rem 1.5rem; }
-  </style>
 </head>
-<body x-data>
-  <header>
-    <img src="/katsu_logo.png" alt="Katsu" />
-    <strong>Katsu</strong>
-    <div class="spacer"></div>
-    <span class="user"><%= user.name %> (<%= user.roleSlug %>)</span>
-    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login')">Sair</button>
-  </header>
+<body>
+  <%- include('partials/nav', { user, page: 'home' }) %>
   <main>
-    <p>Bem-vindo ao Katsu. Os módulos instalados aparecerão aqui.</p>
+    <h1>Bem-vindo, <%= user.name %></h1>
+    <div class="cards">
+      <% if (user.permissions.has('users.view')) { %>
+        <a class="card" href="/admin/usuarios"><h2>Usuários</h2><p>Contas, cargos e acesso ao sistema.</p></a>
+      <% } %>
+      <% if (user.permissions.has('audit.view')) { %>
+        <a class="card" href="/admin/auditoria"><h2>Auditoria</h2><p>Quem fez o quê, quando e de onde.</p></a>
+      <% } %>
+      <% if (user.permissions.has('backup.view')) { %>
+        <a class="card" href="/admin/backup"><h2>Backup</h2><p>Cópias de segurança do banco local.</p></a>
+      <% } %>
+      <% if (user.permissions.has('settings.view')) { %>
+        <a class="card" href="/admin/configuracoes"><h2>Configurações</h2><p>Parâmetros do sistema e licença.</p></a>
+      <% } %>
+    </div>
+    <p class="muted" style="margin-top:2rem">Os módulos (Apps) instalados aparecerão aqui.</p>
   </main>
 </body>
 </html>
