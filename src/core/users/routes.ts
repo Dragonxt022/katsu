@@ -57,7 +57,8 @@ router.post('/', requirePermission('users.create'), (req, res) => {
 });
 
 router.put('/:id', requirePermission('users.edit'), (req, res) => {
-  const before = getUser(req.params.id);
+  const id = String(req.params.id);
+  const before = getUser(id);
   if (!before) {
     res.status(404).json({ error: 'Usuário não encontrado.' });
     return;
@@ -92,29 +93,30 @@ router.put('/:id', requirePermission('users.edit'), (req, res) => {
     roleId ?? null,
     active != null ? (active ? 1 : 0) : null,
     password ? hashPassword(String(password)) : null,
-    req.params.id,
+    id,
   );
 
-  const after = getUser(req.params.id);
-  audit(req, 'editar', 'user', req.params.id, before, after);
+  const after = getUser(id);
+  audit(req, 'editar', 'user', id, before, after);
   res.json(after);
 });
 
 router.delete('/:id', requirePermission('users.delete'), (req, res) => {
-  const before = getUser(req.params.id);
+  const id = String(req.params.id);
+  const before = getUser(id);
   if (!before) {
     res.status(404).json({ error: 'Usuário não encontrado.' });
     return;
   }
-  if (req.user && String(req.user.id) === String(req.params.id)) {
+  if (req.user && String(req.user.id) === id) {
     res.status(400).json({ error: 'Você não pode excluir o próprio usuário.' });
     return;
   }
   // Soft delete (contrato de sincronização §6).
   getSqlite()
     .prepare(`UPDATE users SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
-    .run(req.params.id);
-  audit(req, 'excluir', 'user', req.params.id, before, null);
+    .run(id);
+  audit(req, 'excluir', 'user', id, before, null);
   res.json({ ok: true });
 });
 

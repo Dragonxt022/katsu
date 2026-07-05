@@ -28,7 +28,7 @@ export function attachUser(req: Request, _res: Response, next: NextFunction): vo
 /** Bloqueia se não autenticado: 401 na API, redirect na UI. */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.user) return next();
-  if (req.path.startsWith('/api/')) {
+  if (req.originalUrl.startsWith('/api/')) {
     res.status(401).json({ error: 'Não autenticado.' });
   } else {
     res.redirect('/login');

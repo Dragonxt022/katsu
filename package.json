@@ -13,11 +13,16 @@
     "db:migrate": "tsx src/core/database/cli.ts up",
     "db:rollback": "tsx src/core/database/cli.ts down",
     "db:status": "tsx src/core/database/cli.ts status",
-    "smoke": "tsx src/dev.ts --smoke"
+    "smoke": "tsx src/dev.ts --smoke",
+    "test:fase1": "tsx src/tests/fase1.ts",
+    "postinstall": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
   },
   "dependencies": {
+    "alpinejs": "^3.14.0",
+    "bcryptjs": "^3.0.2",
     "better-sqlite3": "^11.10.0",
     "drizzle-orm": "^0.44.0",
+    "ejs": "^3.1.10",
     "express": "^5.1.0"
   },
   "devDependencies": {

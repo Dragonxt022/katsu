@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/katsu_logo.png" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; min-height: 100vh; }
+    header { display: flex; align-items: center; gap: .8rem; padding: .8rem 1.5rem;
+             background: #1a1d24; border-bottom: 1px solid #2c313c; }
+    header img { width: 32px; }
+    header .spacer { flex: 1; }
+    header .user { font-size: .9rem; color: #9aa0aa; }
+    header button { border: 0; background: transparent; color: #e5484d; cursor: pointer; font-size: .9rem; }
+    main { padding: 2rem 1.5rem; }
+  </style>
+</head>
+<body x-data>
+  <header>
+    <img src="/katsu_logo.png" alt="Katsu" />
+    <strong>Katsu</strong>
+    <div class="spacer"></div>
+    <span class="user"><%= user.name %> (<%= user.roleSlug %>)</span>
+    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login')">Sair</button>
+  </header>
+  <main>
+    <p>Bem-vindo ao Katsu. Os módulos instalados aparecerão aqui.</p>
+  </main>
+</body>
+</html>

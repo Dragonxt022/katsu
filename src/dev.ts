@@ -3,6 +3,7 @@
  * Com --smoke: sobe, testa /api/health e /api/hello, e encerra.
  */
 import { migrateUp } from './core/database/migrator';
+import { runSeeds } from './core/database/seeds';
 import { createServer } from './core/server';
 import { closeDb } from './core/database/connection';
 
@@ -12,6 +13,7 @@ const smoke = process.argv.includes('--smoke');
 async function main() {
   const applied = migrateUp();
   if (applied.length) console.log(`[db] migrations aplicadas: ${applied.join(', ')}`);
+  runSeeds();
 
   const { app, modules } = await createServer();
   const server = app.listen(PORT, () => {
@@ -19,10 +21,11 @@ async function main() {
   });
 
   if (smoke) {
-    const health = await fetch(`http://localhost:${PORT}/api/health`).then((r) => r.json());
-    const hello = await fetch(`http://localhost:${PORT}/api/hello`).then((r) => r.json());
+    const base = `http://localhost:${PORT}`;
+    const health = await fetch(`${base}/api/health`).then((r) => r.json());
     console.log('[smoke] health:', JSON.stringify(health));
-    console.log('[smoke] hello:', JSON.stringify(hello));
+    const helloAnon = await fetch(`${base}/api/hello`);
+    console.log('[smoke] hello sem login (esperado 401):', helloAnon.status);
     server.close();
     closeDb();
   }
