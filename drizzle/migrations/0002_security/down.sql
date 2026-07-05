@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS idx_audit_entity;
+DROP INDEX IF EXISTS idx_audit_created;
+DROP INDEX IF EXISTS idx_sessions_token;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS role_permissions;
+DROP TABLE IF EXISTS permissions;
+DROP TABLE IF EXISTS roles;

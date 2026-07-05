@@ -1,0 +1,56 @@
+import { Router } from 'express';
+import { login, logout } from './service';
+import { SESSION_COOKIE } from './middleware';
+import { audit } from '../audit/service';
+
+const router = Router();
+
+router.post('/login', (req, res) => {
+  const { username, password, remember } = req.body ?? {};
+  if (!username || !password) {
+    res.status(400).json({ error: 'Informe usuário e senha.' });
+    return;
+  }
+  const result = login(String(username), String(password), Boolean(remember), req.ip);
+  if (!result) {
+    audit(req, 'login_falhou', 'user', String(username));
+    res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+    return;
+  }
+  res.cookie(SESSION_COOKIE, result.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    expires: new Date(result.expiresAt),
+  });
+  req.user = result.user;
+  audit(req, 'login', 'user', result.user.id);
+  res.json({
+    user: {
+      id: result.user.id,
+      name: result.user.name,
+      username: result.user.username,
+      role: result.user.roleSlug,
+      permissions: [...result.user.permissions],
+    },
+  });
+});
+
+router.post('/logout', (req, res) => {
+  const cookies = req.headers.cookie ?? '';
+  const match = cookies.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+  if (match) logout(match[1]);
+  if (req.user) audit(req, 'logout', 'user', req.user.id);
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
+
+router.get('/me', (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Não autenticado.' });
+    return;
+  }
+  const { id, name, username, roleSlug, permissions } = req.user;
+  res.json({ id, name, username, role: roleSlug, permissions: [...permissions] });
+});
+
+export default router;
