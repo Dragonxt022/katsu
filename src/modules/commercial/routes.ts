@@ -5,7 +5,7 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { makeCrudRouter } from './crud';
-import { moveStock, listMovements, type MovementType } from './stock';
+import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
 
 const router = Router();
 const db = () => getSqlite();
@@ -195,7 +195,7 @@ router.post('/purchases', requirePermission('commercial.purchases.create'), (req
         ).run(purchaseId, item.productId, item.qty, Math.round(item.unitCostCents));
         database.prepare(`UPDATE products SET cost_cents = ?, updated_at = datetime('now') WHERE id = ?`)
           .run(Math.round(item.unitCostCents), item.productId);
-        const move = moveStock(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
+        const move = moveStockRaw(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
         if (!move.ok) throw new Error(move.error);
       }
     })();

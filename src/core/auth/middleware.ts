@@ -31,6 +31,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   if (req.originalUrl.startsWith('/api/')) {
     res.status(401).json({ error: 'Não autenticado.' });
   } else {
-    res.redirect('/login');
+    res.redirect('/?login=1');
   }
 }

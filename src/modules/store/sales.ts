@@ -174,7 +174,7 @@ export function createSale(
       );
       for (const i of items) {
         insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.totalCents);
-        const move = stock.move(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId);
+        const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId);
         if (!move.ok) throw new Error(move.error);
       }
 
@@ -251,7 +251,7 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   try {
     db.transaction(() => {
       for (const i of items) {
-        const move = stock.move(req, i.product_id, 'entrada', i.qty, 'cancelamento de venda', 'sale', saleId);
+        const move = stock.moveRaw(req, i.product_id, 'entrada', i.qty, 'cancelamento de venda', 'sale', saleId);
         if (!move.ok) throw new Error(move.error);
       }
       if (hasCashPayment) {

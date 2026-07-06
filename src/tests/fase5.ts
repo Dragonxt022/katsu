@@ -139,7 +139,7 @@ async function main() {
   const dbTotal = (db.prepare("SELECT COALESCE(SUM(total_cents),0) t FROM sales WHERE status = 'concluida' AND date(created_at) = date('now')").get() as { t: number }).t;
   check('relatório bate com o banco', report.totals.total_cents === dbTotal, `${report.totals.total_cents} vs ${dbTotal}`);
   check('relatório: 2 vendas concluídas, 334,00', report.totals.vendas === 2 && report.totals.total_cents === 33400);
-  check('relatório por pagamento inclui pix e prazo', ['pix', 'prazo'].every((m) => report.byPayment.some((p) => p.payment_method === m)));
+  check('relatório por pagamento inclui PIX e A prazo (fiado)', ['PIX', 'A prazo (fiado)'].every((m) => report.byPayment.some((p) => p.payment_method === m)));
 
   // Fecha o dia: contado = esperado → diferença zero
   const close = (await (await api('/api/finance/cash/close', { method: 'POST', body: JSON.stringify({ countedCents: cur.expectedCents }) }, admin!)).json()) as { difference: number };

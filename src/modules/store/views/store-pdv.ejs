@@ -8,108 +8,319 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
-    .pdv { display: grid; grid-template-columns: 1fr 420px; gap: 1.2rem; align-items: start; }
-    .pdv-search input { width: 100%; font-size: 1.1rem; padding: .8rem 1rem; }
-    .pdv-results { margin-top: .8rem; max-height: 55vh; overflow-y: auto; }
-    .pdv-result { display: flex; justify-content: space-between; gap: .8rem; padding: .6rem .8rem;
-      border-radius: 8px; cursor: pointer; }
-    .pdv-result:hover { background: rgba(0, 163, 19, .08); }
-    .cart { position: sticky; top: 1rem; }
-    .cart-items { max-height: 38vh; overflow-y: auto; margin-bottom: .8rem; }
-    .cart-line { display: grid; grid-template-columns: 1fr 70px 90px 28px; gap: .5rem; align-items: center;
-      padding: .45rem 0; font-size: .9rem; }
-    .cart-line input { width: 100%; padding: .3rem .4rem; text-align: center; }
-    .cart-total { display: flex; justify-content: space-between; font-size: 1rem; padding: .25rem 0; }
-    .cart-total.big { font-size: 1.5rem; font-weight: 700; }
-    .pdv-actions { display: flex; justify-content: center; gap: .7rem; margin: .8rem 0; }
-    .pdv-action { display: flex; flex-direction: column; align-items: center; gap: .25rem;
-      background: none; border: 1px solid var(--border-light, #2c313c); border-radius: 10px;
-      padding: .55rem .7rem; min-width: 74px; cursor: pointer; color: inherit; font-size: .7rem; }
-    .pdv-action:hover { border-color: #00a313; }
-    .pdv-action svg { width: 20px; height: 20px; stroke: #00a313; fill: none; stroke-width: 2.25;
-      stroke-linecap: round; stroke-linejoin: round; }
-    .pay-line { display: grid; grid-template-columns: 1fr 100px 28px; gap: .4rem; align-items: center; padding: .3rem 0; font-size: .9rem; }
-    .pay-summary { display: flex; justify-content: space-between; padding: .25rem 0; font-size: .95rem; }
-    @media (max-width: 900px) { .pdv { grid-template-columns: 1fr; } }
+    .pdv { display: grid; grid-template-columns: 68fr 32fr; gap: 1.25rem; align-items: start; min-height: calc(100vh - var(--header-height) - 48px); }
+
+    /* ─── Coluna da Esquerda ─── */
+    .pdv-left { display: flex; flex-direction: column; gap: .75rem; }
+
+    /* ─── Busca ─── */
+    .pdv-search { position: relative; z-index: 10; }
+    .pdv-search input {
+      width: 100%; font-size: 1.15rem; padding: .85rem 1.1rem;
+      border-radius: var(--radius); border: 2px solid var(--border-light);
+      background: var(--surface); color: var(--text);
+      box-shadow: var(--shadow-xs);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .pdv-search input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent), var(--shadow-sm);
+    }
+    .pdv-search input::placeholder { color: var(--text-muted); }
+
+    /* ─── Dropdown de resultados ─── */
+    .pdv-results {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1.5px solid var(--border-light);
+      border-radius: var(--radius); box-shadow: var(--shadow-lg);
+      max-height: 45vh; overflow-y: auto; z-index: 50;
+    }
+    .pdv-result {
+      display: grid; grid-template-columns: 1fr auto auto; gap: .75rem; align-items: center;
+      padding: .7rem .9rem; cursor: pointer; border-bottom: 1px solid var(--border-light);
+      transition: background var(--transition);
+    }
+    .pdv-result:last-child { border-bottom: 0; }
+    .pdv-result:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+    .pdv-result .name { font-weight: 600; font-size: .95rem; color: var(--text); }
+    .pdv-result .price { font-weight: 700; font-size: .95rem; color: var(--primary); white-space: nowrap; }
+    .pdv-result .stock {
+      font-size: .78rem; color: var(--text-muted); white-space: nowrap; text-align: right;
+    }
+    .pdv-result .stock.low { color: var(--danger); }
+    .pdv-result.highlight { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .pdv-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+    [x-cloak] { display: none !important; }
+
+    /* ─── Carrinho ─── */
+    .cart-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .25rem 0;
+    }
+    .cart-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+    .cart-header .count { color: var(--text-muted); font-size: .85rem; }
+    .cart-items {
+      flex: 1; overflow-y: auto; min-height: 120px;
+      background: var(--surface); border-radius: var(--radius);
+      border: 1.5px solid var(--border-light); box-shadow: var(--shadow-xs);
+    }
+    .cart-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .5rem; padding: 2.5rem 1rem; color: var(--text-muted);
+    }
+    .cart-empty svg { width: 48px; height: 48px; stroke: var(--border); fill: none; stroke-width: 1.5; }
+    .cart-empty p { font-size: .9rem; }
+
+    .cart-line {
+      display: grid; grid-template-columns: 1fr 80px 120px 36px;
+      gap: .5rem; align-items: center;
+      padding: .55rem .75rem; border-bottom: 1px solid var(--border-light);
+      font-size: .9rem; transition: background var(--transition);
+    }
+    .cart-line:last-child { border-bottom: 0; }
+    .cart-line:hover { background: var(--surface-hover); }
+    .cart-line .prod-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cart-line .prod-unit { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+    .cart-line .qty-wrap {
+      display: inline-flex; align-items: center; gap: 0;
+      border: 1.5px solid var(--border-light); border-radius: 8px; overflow: hidden;
+      background: var(--surface-hover);
+    }
+    .cart-line .qty-wrap button {
+      border: 0; background: transparent; color: var(--text-secondary);
+      width: 28px; height: 28px; cursor: pointer; font-size: 1rem; font-weight: 600;
+      display: grid; place-items: center; transition: background var(--transition), color var(--transition);
+      line-height: 1;
+    }
+    .cart-line .qty-wrap button:hover { background: var(--border-light); color: var(--text); }
+    .cart-line .qty-wrap button:active { background: var(--border); }
+    .cart-line .qty-wrap input {
+      width: 40px; height: 28px; border: 0; text-align: center; font-size: .85rem; font-weight: 600;
+      background: transparent; color: var(--text); padding: 0;
+      -moz-appearance: textfield; appearance: textfield;
+    }
+    .cart-line .qty-wrap input::-webkit-inner-spin-button { display: none; }
+    .cart-line .qty-wrap input:focus { outline: none; background: var(--surface); }
+    .cart-line .prod-total { text-align: right; font-weight: 700; font-size: .95rem; white-space: nowrap; }
+    .cart-line .remove-btn {
+      border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+      width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center;
+      font-size: 1.1rem; transition: background var(--transition), color var(--transition);
+    }
+    .cart-line .remove-btn:hover { background: var(--danger-bg); color: var(--danger); }
+
+    /* ─── Coluna da Direita ─── */
+    .pdv-right { position: sticky; top: 1rem; }
+    .pdv-card {
+      background: var(--surface); border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+      padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem;
+    }
+
+    /* ─── Botões de ação rápida ─── */
+    .pdv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .pdv-action {
+      display: flex; flex-direction: column; align-items: center; gap: .3rem;
+      background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: 10px;
+      padding: .65rem .4rem; cursor: pointer; color: var(--text-secondary);
+      font-size: .72rem; font-weight: 500; line-height: 1.2;
+      transition: border-color var(--transition), background var(--transition), color var(--transition), transform var(--transition);
+    }
+    .pdv-action:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); transform: translateY(-1px); }
+    .pdv-action:active { transform: scale(.97); }
+    .pdv-action svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+    .pdv-action .shortcut {
+      font-size: .62rem; color: var(--text-muted); font-weight: 400;
+      background: var(--border-light); padding: .05rem .4rem; border-radius: 4px;
+    }
+    .pdv-action:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+    /* ─── Bloco de valores ─── */
+    .pdv-totals { border-top: 1.5px solid var(--border-light); padding-top: .65rem; }
+    .pdv-total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .2rem 0; font-size: .9rem;
+    }
+    .pdv-total-row .label { color: var(--text-muted); }
+    .pdv-total-row .value { font-weight: 500; }
+    .pdv-total-row.discount .value { color: #4ade80; }
+    .pdv-total-row.surcharge .value { color: #ff8589; }
+    .pdv-total-row.final { padding: .4rem 0; }
+    .pdv-total-row.final .label { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .pdv-total-row.final .value { font-size: 1.6rem; font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
+
+    .btn-finalize {
+      width: 100%; padding: .95rem; font-size: 1.1rem; font-weight: 700;
+      background: var(--primary); color: #fff; border: 0; border-radius: 12px;
+      cursor: pointer; letter-spacing: -.01em;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+    }
+    .btn-finalize:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent); }
+    .btn-finalize:active { transform: scale(.98); }
+    .btn-finalize:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-finalize .sub {
+      display: block; font-size: .7rem; font-weight: 400; opacity: .75; margin-top: .1rem;
+    }
+    .pdv-error { color: var(--danger); font-size: .82rem; min-height: 1.2em; text-align: center; }
+
+    /* ─── Responsivo ─── */
+    @media (max-width: 1080px) {
+      .pdv { grid-template-columns: 1fr; gap: 1rem; }
+      .pdv-right { position: static; }
+      .pdv-actions { grid-template-columns: repeat(4, 1fr); }
+    }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/pdv' }) %>
-  <main x-data="pdvPage()" x-init="init()">
-    <h1>PDV</h1>
+  <main x-data="pdvPage()" x-init="init()" style="max-width:92%">
     <div class="pdv">
-      <section class="pdv-search">
-        <input type="text" x-ref="search" x-model="q" @input.debounce.250ms="search()"
-               @keydown.enter.prevent="quickAdd()" placeholder="Código de barras, SKU ou nome… (Enter adiciona)" autofocus />
-        <div class="pdv-results">
-          <template x-for="p in results" :key="p.id">
-            <div class="pdv-result" @click="add(p)">
-              <span><strong x-text="p.name"></strong>
-                <span class="muted" x-show="p.track_stock" x-text="' · estoque: ' + p.stock_qty"></span></span>
-              <span x-text="brl(p.price_cents)"></span>
-            </div>
-          </template>
-          <p class="muted" x-show="q && !results.length" style="padding:.6rem">Nada encontrado.</p>
-        </div>
-      </section>
 
-      <aside class="cart">
-        <h2 style="font-size:1rem;margin-bottom:.6rem">Carrinho (<span x-text="cart.length"></span>)</h2>
+      <!-- ─── COLUNA ESQUERDA (68%) ─── -->
+      <div class="pdv-left">
+        <div class="pdv-search">
+          <input type="text" x-ref="search" x-model="q"
+                 @input.debounce.250ms="search()"
+                 @keydown.enter.prevent="quickAdd()"
+                 @keydown.down.prevent="highlightNext()"
+                 @keydown.up.prevent="highlightPrev()"
+                 @keydown.escape="results = []"
+                 placeholder="Código de barras, SKU ou nome… (Enter adiciona)" autofocus />
+
+          <div class="pdv-results" x-show="results.length" x-cloak>
+            <template x-for="(p, idx) in results" :key="p.id">
+              <div class="pdv-result" :class="{ 'highlight': idx === highlightIdx }"
+                   @click="add(p)" @mouseenter="highlightIdx = idx">
+                <span class="name" x-text="p.name"></span>
+                <span class="price" x-text="brl(p.price_cents)"></span>
+                <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 }"
+                      x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+              </div>
+            </template>
+          </div>
+          <p class="pdv-empty" x-show="q && !results.length && !searching" x-cloak>Nenhum produto encontrado.</p>
+        </div>
+
+        <div class="cart-header">
+          <h2>Carrinho <span class="count" x-text="'(' + cart.length + ')'"></span></h2>
+        </div>
+
         <div class="cart-items">
           <template x-for="(i, idx) in cart" :key="idx">
             <div class="cart-line">
-              <span x-text="i.name"></span>
-              <input type="number" step="any" min="0.001" x-model.number="i.qty" />
-              <span style="text-align:right" x-text="brl(Math.round(i.price_cents * i.qty))"></span>
-              <button class="btn small" @click="cart.splice(idx, 1)">×</button>
+              <div>
+                <div class="prod-name" x-text="i.name"></div>
+                <div class="prod-unit" x-text="'R$ ' + (i.price_cents / 100).toFixed(2).replace('.', ',')"></div>
+              </div>
+              <div class="qty-wrap">
+                <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
+                <input type="number" step="any" min="0.001" x-model.number="i.qty"
+                       @focus="$event.target.select()" />
+                <button @click="qtyPlus(idx)">+</button>
+              </div>
+              <span class="prod-total" x-text="brl(Math.round(i.price_cents * i.qty))"></span>
+              <button class="remove-btn" @click="removeItem(idx)" title="Remover">×</button>
             </div>
           </template>
-          <p class="muted" x-show="!cart.length" style="padding:.6rem 0">Carrinho vazio.</p>
-        </div>
 
-        <div class="pdv-actions">
-          <% if (user.permissions.has('store.sales.discount')) { %>
-          <button class="pdv-action" @click="openValue('desconto')" title="Desconto">
-            <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-            Desconto
-          </button>
-          <button class="pdv-action" @click="openValue('acrescimo')" title="Acréscimo">
-            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Acréscimo
-          </button>
-          <% } %>
-          <button class="pdv-action" @click="clearCart()" title="Limpar carrinho">
-            <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Limpar
-          </button>
-          <button class="pdv-action" @click="printLast()" :disabled="!lastSaleId" :style="!lastSaleId ? 'opacity:.4;cursor:default' : ''" title="Imprimir última venda">
-            <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Imprimir
+          <div class="cart-empty" x-show="!cart.length">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            <p>Carrinho vazio — busque ou bie um produto para começar.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── COLUNA DIREITA (32%) ─── -->
+      <div class="pdv-right">
+        <div class="pdv-card">
+          <div class="pdv-actions">
+            <% if (user.permissions.has('store.sales.discount')) { %>
+            <button class="pdv-action" @click="openValue('desconto')" title="Desconto">
+              <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+              % Desconto <span class="shortcut">F4</span>
+            </button>
+            <button class="pdv-action" @click="openValue('acrescimo')" title="Acréscimo">
+              <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              + Acréscimo <span class="shortcut">F7</span>
+            </button>
+            <% } %>
+            <button class="pdv-action" @click="clearCart()" title="Limpar carrinho">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Limpar <span class="shortcut">F9</span>
+            </button>
+            <button class="pdv-action" @click="printLast()"
+                    :disabled="!lastSaleId" title="Imprimir última venda">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Imprimir <span class="shortcut">F11</span>
+            </button>
+          </div>
+
+          <div class="pdv-totals">
+            <div class="pdv-total-row">
+              <span class="label">Subtotal</span>
+              <span class="value" x-text="brl(subtotal())"></span>
+            </div>
+            <div class="pdv-total-row discount" x-show="discountCents > 0">
+              <span class="label">Desconto</span>
+              <span class="value" x-text="'−' + brl(discountCents)"></span>
+            </div>
+            <div class="pdv-total-row surcharge" x-show="surchargeCents > 0">
+              <span class="label">Acréscimo</span>
+              <span class="value" x-text="'+' + brl(surchargeCents)"></span>
+            </div>
+            <div class="pdv-total-row final">
+              <span class="label">Total</span>
+              <span class="value" x-text="brl(total())"></span>
+            </div>
+          </div>
+
+          <div class="pdv-error" x-text="error"></div>
+
+          <button class="btn-finalize" :disabled="!cart.length" @click="openPay()">
+            Finalizar venda
+            <span class="sub">F2</span>
           </button>
         </div>
-
-        <div class="cart-total"><span>Subtotal</span><span x-text="brl(subtotal())"></span></div>
-        <div class="cart-total" x-show="discountCents > 0" style="color:#4ade80"><span>Desconto</span><span x-text="'-' + brl(discountCents)"></span></div>
-        <div class="cart-total" x-show="surchargeCents > 0" style="color:#ff8589"><span>Acréscimo</span><span x-text="'+' + brl(surchargeCents)"></span></div>
-        <div class="cart-total big"><span>Total</span><span x-text="brl(total())"></span></div>
-        <button class="btn" style="width:100%;padding:.9rem;font-size:1.05rem;margin-top:.5rem"
-                :disabled="!cart.length" @click="openPay()">Finalizar venda (F2)</button>
-        <div class="error" x-text="error"></div>
-      </aside>
+      </div>
     </div>
 
+    <!-- ─── MODAL: Desconto / Acréscimo ─── -->
     <dialog x-ref="value">
-      <h1 x-text="valueDlg.kind === 'desconto' ? 'Desconto' : 'Acréscimo'"></h1>
-      <label>Valor (R$)</label>
-      <input type="text" x-ref="valueInput" x-model="valueDlg.amount" placeholder="0,00" @keydown.enter.prevent="saveValue()" />
+      <h1 x-text="valueDlg.kind === 'desconto' ? 'Desconto (F4)' : 'Acréscimo (F7)'"></h1>
+      <label>Valor em R$</label>
+      <input type="text" x-ref="valueInput" x-model="valueDlg.amount" placeholder="0,00"
+             @keydown.enter.prevent="saveValue()" @keydown.escape.prevent="$refs.value.close()" />
       <div class="error" x-text="valueDlg.error"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.value.close()">Cancelar</button>
-        <button class="btn" @click="saveValue()">Aplicar</button>
+        <button class="btn secondary" @click="$refs.value.close()">Cancelar (Esc)</button>
+        <button class="btn" @click="saveValue()">Aplicar (Enter)</button>
       </div>
     </dialog>
 
-    <dialog x-ref="pay" style="width:520px">
+    <!-- ─── MODAL: Limpar carrinho (F9) ─── -->
+    <dialog x-ref="clearDlg">
+      <div style="text-align:center;padding:.5rem 0">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--danger-bg);display:grid;place-items:center;margin:0 auto 1rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+            <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </div>
+        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Limpar carrinho?</h2>
+        <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">
+          Todos os itens, descontos e acréscimos serão removidos.
+        </p>
+        <div class="actions" style="justify-content:center">
+          <button class="btn secondary" @click="$refs.clearDlg.close()">Não (Esc)</button>
+          <button class="btn" @click="doClear()" x-ref="clearConfirm">Sim (Enter)</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Pagamento ─── -->
+    <dialog x-ref="pay" style="width:540px">
       <h1>Pagamento — <span x-text="brl(total())"></span></h1>
 
       <div style="display:flex;gap:.4rem;align-items:end;margin-bottom:.6rem">
@@ -123,7 +334,8 @@
         </div>
         <div style="width:110px">
           <label>Valor (R$)</label>
-          <input type="text" x-model="pay.amount" placeholder="0,00" />
+          <input type="text" x-model="pay.amount" placeholder="0,00"
+                 @keydown.enter.prevent="addPayment()" />
         </div>
         <button class="btn secondary" @click="addPayment()">+</button>
       </div>
@@ -177,31 +389,80 @@
       </div>
     </dialog>
   </main>
+
   <script>
     function pdvPage() {
       return {
+        // ─── Estado ───
         q: '', results: [], cart: [], customers: [], methods: [],
         discountCents: 0, surchargeCents: 0, lastSaleId: null,
+        highlightIdx: -1, searching: false,
         valueDlg: { kind: 'desconto', amount: '', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
         error: '', payError: '', saving: false,
+
+        // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
+        focusSearch() { this.$nextTick(() => { this.$refs.search.focus(); }); },
+
+        // ─── Inicialização ───
         async init() {
-          document.addEventListener('keydown', (e) => {
-            if (e.key === 'F2') { e.preventDefault(); if (this.cart.length) this.openPay(); }
-          });
           const m = await fetch('/api/store/payment-methods');
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
+          this.focusSearch();
+          document.addEventListener('keydown', (e) => {
+            const dialogsOpen = document.querySelectorAll('dialog[open]').length > 0;
+            if (!dialogsOpen) {
+              switch (e.key) {
+                case 'F2': e.preventDefault(); if (this.cart.length) this.openPay(); return;
+                case 'F4': e.preventDefault(); this.openValue('desconto'); return;
+                case 'F7': e.preventDefault(); this.openValue('acrescimo'); return;
+                case 'F9': e.preventDefault(); this.clearCart(); return;
+                case 'F11': e.preventDefault(); this.printLast(); return;
+              }
+            }
+            if (e.key === 'Enter') {
+              const dlg = document.querySelector('dialog[open]');
+              if (dlg && dlg.id === 'confirm-dlg') {
+                const confirmBtn = dlg.querySelector('.btn:not(.secondary)');
+                if (confirmBtn) confirmBtn.click();
+              }
+            }
+          });
         },
+
+        // ─── Busca ───
         async search() {
-          if (!this.q.trim()) { this.results = []; return; }
-          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.q.trim()));
-          if (r.ok) this.results = await r.json();
+          if (!this.q.trim()) { this.results = []; this.highlightIdx = -1; return; }
+          this.searching = true;
+          this.highlightIdx = -1;
+          try {
+            const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.q.trim()));
+            if (r.ok) this.results = await r.json();
+          } finally {
+            this.searching = false;
+          }
+        },
+        highlightNext() {
+          if (!this.results.length) return;
+          this.highlightIdx = (this.highlightIdx + 1) % this.results.length;
+          const el = document.querySelector('.pdv-result.highlight');
+          if (el) el.scrollIntoView({ block: 'nearest' });
+        },
+        highlightPrev() {
+          if (!this.results.length) return;
+          this.highlightIdx = (this.highlightIdx - 1 + this.results.length) % this.results.length;
+          const el = document.querySelector('.pdv-result.highlight');
+          if (el) el.scrollIntoView({ block: 'nearest' });
         },
         quickAdd() {
           if (this.results.length === 1) { this.add(this.results[0]); }
           else if (this.results.length > 1) {
+            if (this.highlightIdx >= 0) {
+              this.add(this.results[this.highlightIdx]);
+              return;
+            }
             const exact = this.results.find((p) => p.barcode === this.q.trim() || p.sku === this.q.trim());
             if (exact) this.add(exact);
           }
@@ -210,10 +471,27 @@
           const existing = this.cart.find((i) => i.productId === p.id);
           if (existing) existing.qty += 1;
           else this.cart.push({ productId: p.id, name: p.name, price_cents: p.price_cents, qty: 1 });
-          this.q = ''; this.results = []; this.$refs.search.focus();
+          this.q = ''; this.results = []; this.highlightIdx = -1;
+          this.focusSearch();
         },
+
+        // ─── Carrinho ───
+        qtyPlus(idx) {
+          const i = this.cart[idx];
+          if (i) i.qty = Math.round((i.qty + 0.5) * 2) / 2;
+        },
+        qtyMinus(idx) {
+          const i = this.cart[idx];
+          if (i && i.qty > 0.001) {
+            const dec = i.qty <= 1 ? 0.5 : 1;
+            i.qty = Math.max(0.001, Math.round((i.qty - dec) * 2) / 2);
+          }
+        },
+        removeItem(idx) { this.cart.splice(idx, 1); },
         subtotal() { return this.cart.reduce((a, i) => a + Math.round(i.price_cents * i.qty), 0); },
         total() { return Math.max(0, this.subtotal() - this.discountCents + this.surchargeCents); },
+
+        // ─── Desconto / Acréscimo ───
         openValue(kind) {
           this.valueDlg = { kind, amount: '', error: '' };
           this.$refs.value.showModal();
@@ -229,17 +507,27 @@
             this.surchargeCents = v;
           }
           this.$refs.value.close();
+          this.focusSearch();
         },
-        async clearCart() {
+
+        // ─── Limpar carrinho ───
+        clearCart() {
           if (!this.cart.length) return;
-          if (!await window.confirmDlg('Limpar o carrinho?')) return;
-          this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
-          this.$refs.search.focus();
+          this.$refs.clearDlg.showModal();
+          this.$nextTick(() => this.$refs.clearConfirm.focus());
         },
+        doClear() {
+          this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
+          this.$refs.clearDlg.close();
+          this.focusSearch();
+        },
+
+        // ─── Impressão ───
         printLast() {
           if (this.lastSaleId) window.open(`/app/store/vendas/${this.lastSaleId}/cupom`, '_blank', 'width=380,height=600');
         },
-        // ---- pagamento múltiplo ----
+
+        // ─── Pagamento ───
         methodName(id) { const m = this.methods.find((x) => x.id === id); return m ? m.name : '?'; },
         methodType(id) { const m = this.methods.find((x) => x.id === id); return m ? m.type : ''; },
         paidSum() { return this.pay.list.reduce((a, p) => a + p.amountCents, 0); },
@@ -286,7 +574,6 @@
         async finish() {
           if (this.saving || this.remaining() !== 0) return;
           this.saving = true; this.payError = '';
-          // distribui o "recebido" nas parcelas em dinheiro (troco na primeira)
           let cashReceived = this.cents(this.pay.received);
           const payments = this.pay.list.map((p) => {
             const out = { methodId: p.methodId, amountCents: p.amountCents };
@@ -311,8 +598,8 @@
             const d = await r.json();
             this.lastSaleId = d.id;
             this.$refs.pay.close();
-            alert(`Venda #${d.id} concluída — ${this.brl(d.totalCents)}` + (d.changeCents ? `\nTroco: ${this.brl(d.changeCents)}` : ''));
-            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.$refs.search.focus();
+            this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
+            this.focusSearch();
           } else {
             this.payError = (await r.json()).error ?? 'Erro ao registrar a venda.';
           }
