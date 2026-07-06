@@ -4,7 +4,7 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { getService } from '../../core/services/registry';
 import type { FinancePayMethodsService } from '../finance/setup';
 import { createSale, cancelSale, type SaleInput } from './sales';
-import { createQuote, convertQuote, cancelQuote, type QuoteInput } from './quotes';
+import { createQuote, convertQuote, cancelQuote, updateQuote, type QuoteInput } from './quotes';
 
 const router = Router();
 const db = () => getSqlite();
@@ -65,8 +65,8 @@ router.post('/sales/:id/cancel', requirePermission('store.sales.cancel'), (req, 
 router.get('/quotes', requirePermission('store.quotes.view'), (req, res) => {
   const status = String(req.query.status ?? '');
   const where = status ? 'AND q.status = ?' : '';
-  const sql = `SELECT q.id, q.status, q.customer_name, c.name AS customer, q.total_cents,
-                      q.valid_until, q.sale_id, u.username, q.created_at
+  const sql = `SELECT q.id, q.status, q.customer_id, q.customer_name, c.name AS customer, q.total_cents,
+                      q.discount_cents, q.notes, q.valid_until, q.sale_id, u.username, q.created_at
                FROM quotes q
                LEFT JOIN customers c ON c.id = q.customer_id
                LEFT JOIN users u ON u.id = q.user_id
@@ -96,6 +96,15 @@ router.post('/quotes', requirePermission('store.quotes.create'), (req, res) => {
     return;
   }
   res.status(201).json(result);
+});
+
+router.put('/quotes/:id', requirePermission('store.quotes.edit'), (req, res) => {
+  const result = updateQuote(req, Number(req.params.id), req.body ?? {});
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json(result);
 });
 
 router.post('/quotes/:id/convert', requirePermission('store.sales.create'), (req, res) => {

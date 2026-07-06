@@ -97,6 +97,37 @@ export function convertQuote(
   return result;
 }
 
+export function updateQuote(req: Request, quoteId: number, updates: {
+  customerId?: number; customerName?: string; validUntil?: string; notes?: string; discountCents?: number;
+}): { ok: true } | { ok: false; error: string } {
+  const db = getSqlite();
+  const before = db.prepare('SELECT id, status, subtotal_cents, discount_cents, total_cents FROM quotes WHERE id = ? AND deleted_at IS NULL')
+    .get(quoteId) as { id: number; status: string; subtotal_cents: number; discount_cents: number; total_cents: number } | undefined;
+  if (!before) return { ok: false, error: 'Orçamento não encontrado.' };
+  if (before.status !== 'aberto') return { ok: false, error: `Orçamento já está "${before.status}".` };
+
+  const discount = updates.discountCents != null ? Math.round(updates.discountCents) : before.discount_cents;
+  if (discount !== before.discount_cents) {
+    if (!req.user!.permissions.has('store.sales.discount')) {
+      return { ok: false, error: 'Permissão negada: store.sales.discount (alterar desconto).' };
+    }
+    if (discount > before.subtotal_cents) return { ok: false, error: 'Desconto maior que o subtotal.' };
+  }
+  const total = before.subtotal_cents - discount;
+
+  db.prepare(
+    `UPDATE quotes SET customer_id = COALESCE(?, customer_id), customer_name = COALESCE(?, customer_name),
+       valid_until = COALESCE(?, valid_until), notes = COALESCE(?, notes),
+       discount_cents = ?, total_cents = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(updates.customerId ?? null, updates.customerName ?? null, updates.validUntil ?? null, updates.notes ?? null,
+    discount, total, quoteId);
+
+  audit(req, 'editar', 'quote', quoteId,
+    { discount_cents: before.discount_cents, total_cents: before.total_cents },
+    { discount_cents: discount, total_cents: total });
+  return { ok: true };
+}
+
 export function cancelQuote(req: Request, quoteId: number): { ok: boolean; error?: string } {
   const db = getSqlite();
   const quote = db.prepare('SELECT id, status FROM quotes WHERE id = ? AND deleted_at IS NULL').get(quoteId) as

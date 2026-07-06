@@ -40,7 +40,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     const status = String(req.query.status ?? '');
     const where = status ? 'AND b.status = ?' : '';
     const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.due_date, b.status,
-                        b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents
+                        b.notes, b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents
                  FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
                  WHERE b.deleted_at IS NULL ${where} ORDER BY b.due_date, b.id`;
     res.json(status ? db().prepare(sql).all(status) : db().prepare(sql).all());

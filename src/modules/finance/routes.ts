@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
-import { openRegister, closeRegister, currentRegister, expectedCents, addMovement } from './cash';
+import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from './cash';
 import { makeBillsRouter } from './bills';
 
 const router = Router();
@@ -64,6 +64,18 @@ router.put('/payment-methods/:id', requirePermission('finance.paymethods.edit'),
   res.json(after);
 });
 
+router.delete('/payment-methods/:id', requirePermission('finance.paymethods.delete'), (req, res) => {
+  const id = String(req.params.id);
+  const before = db().prepare('SELECT id, name, type, fee_bps, active FROM payment_methods WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
+    return;
+  }
+  db().prepare(`UPDATE payment_methods SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  audit(req, 'excluir', 'payment_method', id, before, null);
+  res.json({ ok: true });
+});
+
 // ---------- Caixa ----------
 router.get('/cash/current', requirePermission('finance.cash.view'), (_req, res) => {
   const reg = currentRegister();
@@ -91,10 +103,12 @@ router.get('/cash/movements', requirePermission('finance.cash.view'), (req, res)
 router.get('/cash/history', requirePermission('finance.cash.view'), (_req, res) => {
   res.json(db().prepare(
     `SELECT r.id, r.status, r.opened_at, r.opening_cents, r.closed_at, r.expected_cents,
-            r.counted_cents, r.difference_cents, uo.username AS opened_by, uc.username AS closed_by
+            r.counted_cents, r.difference_cents, r.edited_at, r.notes,
+            uo.username AS opened_by, uc.username AS closed_by, ue.username AS edited_by_name
      FROM cash_registers r
      LEFT JOIN users uo ON uo.id = r.opened_by
      LEFT JOIN users uc ON uc.id = r.closed_by
+     LEFT JOIN users ue ON ue.id = r.edited_by
      WHERE r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 50`,
   ).all());
 });
@@ -114,6 +128,18 @@ router.post('/cash/close', requirePermission('finance.cash.close'), (req, res) =
     return;
   }
   const result = closeRegister(req, Math.round(req.body.countedCents), req.body?.notes);
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+router.put('/cash/:id', requirePermission('finance.cash.edit'), (req, res) => {
+  const result = editClosedRegister(req, Number(req.params.id), {
+    countedCents: req.body?.countedCents != null ? Math.round(req.body.countedCents) : undefined,
+    notes: req.body?.notes,
+  });
   if (!result.ok) {
     res.status(400).json(result);
     return;

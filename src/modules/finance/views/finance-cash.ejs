@@ -82,13 +82,59 @@
         <button class="btn" @click="closeCash()">Fechar</button>
       </div>
     </dialog>
+
+    <template x-if="history.length">
+      <div style="margin-top:2rem">
+        <h2>Histórico de fechamentos</h2>
+        <table>
+          <thead><tr><th>Aberto em</th><th>Fechado em</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="r in history" :key="r.id">
+              <tr>
+                <td class="muted" x-text="r.opened_at"></td>
+                <td class="muted" x-text="r.closed_at ?? '—'"></td>
+                <td x-text="brl(r.expected_cents)"></td>
+                <td x-text="brl(r.counted_cents)"></td>
+                <td>
+                  <span :style="{ color: r.difference_cents < 0 ? 'var(--danger)' : r.difference_cents > 0 ? 'var(--success-text)' : '', fontWeight: r.difference_cents !== 0 ? 700 : 400 }"
+                        x-text="(r.difference_cents >= 0 ? '+' : '') + (r.difference_cents / 100).toFixed(2).replace('.', ',')"></span>
+                </td>
+                <td>
+                  <span class="badge" :class="r.status === 'aberto' ? 'off' : 'ok'" x-text="r.status"></span>
+                  <span class="badge" x-show="r.edited_at" style="background:var(--primary-bg);color:var(--primary);margin-left:.35rem"
+                        :title="'Editado por ' + (r.edited_by_name ?? '—') + ' em ' + r.edited_at">editado</span>
+                </td>
+                <td style="text-align:right">
+                  <% if (user.permissions.has('finance.cash.edit')) { %>
+                    <button class="btn secondary small" x-show="r.status === 'fechado'" @click="openEditReg(r)">Editar</button>
+                  <% } %>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <dialog x-ref="editReg" @click="$event.target === $el && $refs.editReg.close()">
+      <h1>Editar fechamento</h1>
+      <label>Valor contado na gaveta (R$)</label>
+      <input type="text" x-model="editReg.counted" placeholder="0,00" @input="editReg.counted = maskMoney(editReg.counted)" />
+      <label>Observações</label>
+      <input type="text" x-model="editReg.notes" />
+      <div class="error" x-text="editRegError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.editReg.close()">Cancelar</button>
+        <button class="btn" @click="saveEditReg()">Salvar</button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script>
     function cashPage() {
       return {
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
-        move: {}, error: '', mvError: '', closeError: '',
+        move: {}, history: [], editReg: {}, error: '', mvError: '', closeError: '', editRegError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
@@ -100,6 +146,25 @@
             const m = await fetch('/api/finance/cash/movements');
             if (m.ok) this.movements = await m.json();
           }
+          const h = await fetch('/api/finance/cash/history');
+          if (h.ok) this.history = await h.json();
+        },
+        openEditReg(r) {
+          this.editReg = { id: r.id, counted: (r.counted_cents / 100).toFixed(2).replace('.', ','), notes: r.notes ?? '' };
+          this.editRegError = '';
+          this.$refs.editReg.showModal();
+        },
+        async saveEditReg() {
+          const r = await fetch(`/api/finance/cash/${this.editReg.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ countedCents: this.cents(this.editReg.counted), notes: this.editReg.notes || undefined }),
+          });
+          if (r.ok) {
+            const d = await r.json();
+            this.$refs.editReg.close();
+            alert(`Caixa editado.\nEsperado: ${this.brl(d.expected)}\nContado: ${this.brl(d.counted)}\nDiferença: ${this.brl(d.difference)}`);
+            this.load();
+          } else this.editRegError = (await r.json()).error;
         },
         async openCash() {
           const r = await fetch('/api/finance/cash/open', { method: 'POST', headers: { 'Content-Type': 'application/json' },

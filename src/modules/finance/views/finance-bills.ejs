@@ -41,6 +41,7 @@
                 <button class="btn small" x-show="b.status === 'aberta'" @click="settle(b)"><%= bills.settleLabel %></button>
               <% } %>
               <% if (user.permissions.has(bills.editPerm)) { %>
+                <button class="btn secondary small" x-show="b.status === 'aberta'" @click="openEdit(b)">Editar</button>
                 <button class="btn secondary small" x-show="b.status === 'aberta'" @click="cancel(b)">Cancelar</button>
               <% } %>
             </td>
@@ -50,7 +51,7 @@
     </table>
 
     <dialog x-ref="dlg">
-      <h1>Nova conta</h1>
+      <h1 x-text="form.id ? 'Editar conta' : 'Nova conta'"></h1>
       <label>Descrição</label><input type="text" x-model="form.description" />
       <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" @input="form.amount = maskMoney(form.amount)" />
       <label>Vencimento</label><input type="date" x-model="form.dueDate" />
@@ -74,7 +75,19 @@
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
         },
         openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(b) {
+          this.form = { id: b.id, description: b.description, amount: (b.amount_cents / 100).toFixed(2).replace('.', ','),
+            dueDate: b.due_date, notes: b.notes ?? '' };
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
         async save() {
+          if (this.form.id) {
+            const r = await fetch(`${api}/${this.form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
+                dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });
+            if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+            return;
+          }
           const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
               dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });

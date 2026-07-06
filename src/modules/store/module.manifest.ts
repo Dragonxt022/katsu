@@ -13,6 +13,7 @@ const manifest: ModuleManifest = {
     { key: 'store.reports.view', description: 'Visualizar relatório de vendas' },
     { key: 'store.quotes.view', description: 'Visualizar orçamentos' },
     { key: 'store.quotes.create', description: 'Criar e cancelar orçamentos' },
+    { key: 'store.quotes.edit', description: 'Editar orçamentos (cliente, validade, observações, desconto)' },
   ],
   routes: './routes',
   pages: './pages',

@@ -60,6 +60,9 @@
   border-left-color: color-mix(in srgb, #fff 12%, var(--border) 60%);
   box-shadow: -12px 0 40px rgba(0,0,0,.4), inset 1px 0 0 color-mix(in srgb, #fff 10%, transparent);
 }
+:root[data-theme="dark"] body::before {
+  background-image: url('/fundo_branco.png');
+}
 
 * { box-sizing: border-box; margin: 0; }
 [x-cloak] { display: none !important; }

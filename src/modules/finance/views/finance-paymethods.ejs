@@ -34,6 +34,9 @@
                 <button class="btn secondary small" @click="openEdit(m)">Editar</button>
                 <button class="btn small" @click="toggle(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>
               <% } %>
+              <% if (user.permissions.has('finance.paymethods.delete')) { %>
+                <button class="btn small" @click="del(m)">Excluir</button>
+              <% } %>
             </td>
           </tr>
         </template>
@@ -95,6 +98,11 @@
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ active: !m.active }),
           });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async del(m) {
+          if (!await window.confirmDlg(`Excluir a forma de pagamento "${m.name}"?`)) return;
+          const r = await fetch(`/api/finance/payment-methods/${m.id}`, { method: 'DELETE' });
           if (r.ok) this.load(); else this.error = (await r.json()).error;
         },
       };

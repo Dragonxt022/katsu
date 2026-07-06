@@ -11,7 +11,7 @@
   <div class="nav-left"></div>
 
   <a href="/" class="brand">
-    <img class="logo" src="/favicon.png" alt="Katsu" />
+    <img class="logo" :src="theme === 'dark' ? '/favicon_branco.png' : '/favicon.png'" alt="Katsu" />
   </a>
 
   <% if (user) { %>

@@ -57,7 +57,7 @@
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card">
-        <img class="logo" src="/katsu_logo.png" alt="Katsu" />
+        <img class="logo" :src="theme === 'dark' ? '/logo_marca_branco.png' : '/katsu_logo.png'" alt="Katsu" />
         <h1>Entrar no Katsu</h1>
         <form @submit.prevent="login">
           <label for="login-user">Usuário</label>
@@ -139,6 +139,7 @@
     function homePage() {
       return {
         greeting: '',
+        theme: document.documentElement.getAttribute('data-theme') || 'light',
         q: '',
         showLogin: false,
         loginUser: '',

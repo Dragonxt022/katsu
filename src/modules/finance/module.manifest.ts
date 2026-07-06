@@ -21,6 +21,8 @@ const manifest: ModuleManifest = {
     { key: 'finance.reports.view', description: 'Visualizar fluxo de caixa e relatórios' },
     { key: 'finance.paymethods.view', description: 'Visualizar formas de pagamento' },
     { key: 'finance.paymethods.edit', description: 'Cadastrar/editar formas de pagamento e taxas' },
+    { key: 'finance.paymethods.delete', description: 'Excluir formas de pagamento' },
+    { key: 'finance.cash.edit', description: 'Corrigir caixa já fechado (auditado)' },
   ],
   routes: './routes',
   pages: './pages',
