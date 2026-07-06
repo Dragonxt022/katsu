@@ -7,11 +7,75 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      display: grid; place-items: center;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .login-card {
+      background: var(--surface); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg); padding: 2.5rem 2rem;
+      width: 340px; text-align: center;
+    }
+    .login-card img.logo { width: 80px; margin-bottom: .75rem; }
+    .login-card h1 { font-size: 1.2rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .login-card label { display: block; text-align: left; font-size: .82rem; color: var(--text-muted); margin-bottom: .25rem; }
+    .login-card input[type="text"],
+    .login-card input[type="password"] {
+      width: 100%; padding: .6rem .75rem; border-radius: 10px;
+      border: 1.5px solid var(--border-light); background: var(--surface-hover);
+      color: var(--text); font-size: .95rem; margin-bottom: .85rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .login-card input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+    }
+    .login-card .remember {
+      display: flex; align-items: center; gap: .5rem;
+      margin-bottom: 1rem; font-size: .85rem; color: var(--text-muted); cursor: pointer;
+    }
+    .login-card .remember input { width: 16px; height: 16px; cursor: pointer; }
+    .login-card button[type="submit"] {
+      width: 100%; padding: .7rem; border: 0; border-radius: 10px;
+      background: var(--primary); color: #fff; font-size: .95rem; font-weight: 600;
+      cursor: pointer; transition: background var(--transition), transform var(--transition);
+    }
+    .login-card button[type="submit"]:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .login-card button[type="submit"]:active { transform: scale(.98); }
+    .login-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'home' }) %>
 
   <main x-data="homePage()" x-init="init()">
+    <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
+    <div class="login-overlay" x-show="showLogin" x-cloak>
+      <div class="login-card">
+        <img class="logo" src="/katsu_logo.png" alt="Katsu" />
+        <h1>Entrar no Katsu</h1>
+        <form @submit.prevent="login">
+          <label for="login-user">Usuário</label>
+          <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
+                 x-ref="loginUser" @keydown.escape.prevent="handleLoginEsc()" />
+          <label for="login-pass">Senha</label>
+          <input id="login-pass" type="password" x-model="loginPass" autocomplete="current-password"
+                 @keydown.escape.prevent="handleLoginEsc()" />
+          <label class="remember">
+            <input type="checkbox" x-model="loginRemember" /> Lembrar login
+          </label>
+          <button type="submit" x-text="loginLoading ? 'Entrando…' : 'Entrar'"
+                  :disabled="loginLoading"></button>
+          <div class="error" x-text="loginError"></div>
+        </form>
+      </div>
+    </div>
+
+    <% if (user) { %>
     <div class="greeting">
       <h1><span x-text="greeting + ', '"></span><%= user.name %></h1>
       <p>Comida que alimenta, sistema que organiza.</p>
@@ -37,7 +101,6 @@
       <%
           }
         });
-        // admin links
         var adminItems = [];
         if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', description: 'Contas, cargos e acesso.' });
         if (user.permissions.has('roles.view')) adminItems.push({ label: 'Cargos', href: '/admin/cargos', icon: 'key', description: 'Permissões por cargo.' });
@@ -64,6 +127,7 @@
         }
       %>
     </div>
+    <% } %>
   </main>
 
   <button class="fab" title="Chat">
@@ -75,17 +139,74 @@
       return {
         greeting: '',
         q: '',
+        showLogin: false,
+        loginUser: '',
+        loginPass: '',
+        loginRemember: false,
+        loginLoading: false,
+        loginError: '',
+
         init() {
           const h = new Date().getHours();
           if (h < 12) this.greeting = 'Bom dia';
           else if (h < 18) this.greeting = 'Boa tarde';
           else this.greeting = 'Boa noite';
+
+          const isAuthed = <%= user ? 'true' : 'false' %>;
+          const hasLoginParam = window.location.search.includes('login=1');
+          this.showLogin = !isAuthed || hasLoginParam;
+
+          if (this.showLogin) {
+            this.$nextTick(() => {
+              const el = this.$refs.loginUser;
+              if (el) el.focus();
+            });
+          }
         },
+
         matches(label) {
           if (!this.q) return true;
           return label.toLowerCase().includes(this.q.toLowerCase());
         },
         filter() {},
+
+        async login() {
+          if (this.loginLoading) return;
+          if (!this.loginUser.trim() || !this.loginPass) {
+            this.loginError = 'Informe usuário e senha.';
+            return;
+          }
+          this.loginLoading = true;
+          this.loginError = '';
+          try {
+            const r = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: this.loginUser.trim(),
+                password: this.loginPass,
+                remember: this.loginRemember,
+              }),
+            });
+            if (r.ok) {
+              window.location.href = '/';
+            } else {
+              const data = await r.json();
+              this.loginError = data.error || 'Erro ao autenticar.';
+            }
+          } catch (e) {
+            this.loginError = 'Erro de conexão.';
+          } finally {
+            this.loginLoading = false;
+          }
+        },
+
+        handleLoginEsc() {
+          if (this.loginUser || this.loginPass) {
+            this.loginUser = '';
+            this.loginPass = '';
+          }
+        },
       };
     }
   </script>

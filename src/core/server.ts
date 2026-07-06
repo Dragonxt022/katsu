@@ -21,7 +21,8 @@ export interface KatsuServer {
 /** Página protegida por permissão: sem permissão → volta para a home. */
 function page(view: string, permission?: string) {
   return (req: Request, res: Response, _next: NextFunction) => {
-    if (permission && !req.user!.permissions.has(permission)) return res.redirect('/');
+    if (!req.user) return res.redirect('/?login=1');
+    if (permission && !req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }
@@ -45,8 +46,7 @@ export async function createServer(): Promise<KatsuServer> {
   });
   app.use('/api/auth', authRoutes);
   app.get('/login', (req, res) => {
-    if (req.user) return res.redirect('/');
-    res.render('login');
+    res.redirect('/?login=1');
   });
 
   // API do Core (auth + RBAC por rota)
@@ -58,7 +58,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/license', requireAuth, licenseRoutes);
 
   // Páginas do Core
-  app.get('/', requireAuth, page('home'));
+  app.get('/', page('home'));
   app.get('/admin/usuarios', requireAuth, page('users', 'users.view'));
   app.get('/admin/cargos', requireAuth, page('roles', 'roles.view'));
   app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));

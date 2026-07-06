@@ -23,7 +23,7 @@ async function boot() {
       nodeIntegration: false,
     },
   });
-  await win.loadURL(`http://localhost:${PORT}/login`);
+  await win.loadURL(`http://localhost:${PORT}/`);
 
   // Esqueleto do auto-update (app e módulos separados) — Fase 0.
   void checkAppUpdates();
