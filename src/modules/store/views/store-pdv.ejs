@@ -194,7 +194,7 @@
                    @click="add(p)" @mouseenter="highlightIdx = idx">
                 <span class="name" x-text="p.name"></span>
                 <span class="price" x-text="brl(p.price_cents)"></span>
-                <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 }"
+                <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
                       x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
               </div>
             </template>

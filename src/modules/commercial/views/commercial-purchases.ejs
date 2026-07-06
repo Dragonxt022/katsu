@@ -21,56 +21,68 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Fornecedor</th><th>Status</th><th>Total</th><th>Recebida em</th></tr></thead>
+      <thead><tr><th>#</th><th>Fornecedor</th><th>Status</th><th>Total</th><th>Recebida em</th><th></th></tr></thead>
       <tbody>
         <template x-for="p in rows" :key="p.id">
           <tr>
             <td x-text="p.id"></td>
             <td x-text="p.supplier"></td>
-            <td><span class="badge ok" x-text="p.status"></span></td>
+            <td><span class="badge" :class="p.status === 'cancelada' ? 'off' : 'ok'" x-text="p.status"></span></td>
             <td x-text="brl(p.total_cents)"></td>
             <td class="muted" x-text="p.received_at ?? '—'"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('commercial.purchases.edit')) { %>
+                <button class="btn secondary small" x-show="p.status !== 'cancelada'" @click="openEdit(p)">Editar</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.purchases.cancel')) { %>
+                <button class="btn small" x-show="p.status !== 'cancelada'" @click="cancelPurchase(p)">Cancelar</button>
+              <% } %>
+            </td>
           </tr>
         </template>
       </tbody>
     </table>
 
     <dialog x-ref="dlg" style="width:600px">
-      <h1>Nova compra</h1>
+      <h1 x-text="form.id ? 'Editar compra #' + form.id : 'Nova compra'"></h1>
       <label>Fornecedor</label>
       <select x-model.number="form.supplierId">
         <option value="">Selecione…</option>
         <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
       </select>
 
-      <label>Adicionar item</label>
-      <div style="display:grid;grid-template-columns:1fr 80px 110px 70px;gap:.4rem;align-items:end">
-        <select x-model.number="item.productId">
-          <option value="">Produto…</option>
-          <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
-        </select>
-        <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
-        <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
-        <button class="btn secondary" @click="addItem()">+</button>
-      </div>
-
-      <div style="margin-top:.8rem;max-height:180px;overflow-y:auto">
-        <template x-for="(i, idx) in form.items" :key="idx">
-          <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
-            <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
-            <span>
-              <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
-              <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
-            </span>
+      <template x-if="!form.id">
+        <div>
+          <label>Adicionar item</label>
+          <div style="display:grid;grid-template-columns:1fr 80px 110px 70px;gap:.4rem;align-items:end">
+            <select x-model.number="item.productId">
+              <option value="">Produto…</option>
+              <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+            </select>
+            <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
+            <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
+            <button class="btn secondary" @click="addItem()">+</button>
           </div>
-        </template>
-      </div>
-      <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
+
+          <div style="margin-top:.8rem;max-height:180px;overflow-y:auto">
+            <template x-for="(i, idx) in form.items" :key="idx">
+              <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
+                <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
+                <span>
+                  <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
+                  <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
+                </span>
+              </div>
+            </template>
+          </div>
+          <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
+        </div>
+      </template>
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Receber compra</button>
+        <button class="btn" @click="save()" x-text="form.id ? 'Salvar' : 'Receber compra'"></button>
       </div>
     </dialog>
   </main>
@@ -94,6 +106,19 @@
           }
           this.$refs.dlg.showModal();
         },
+        async openEdit(p) {
+          this.form = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', items: [] };
+          this.dlgError = '';
+          if (!this.suppliers.length) {
+            const s = await fetch('/api/commercial/suppliers'); if (s.ok) this.suppliers = await s.json();
+          }
+          this.$refs.dlg.showModal();
+        },
+        async cancelPurchase(p) {
+          if (!(await window.confirmDlg(`Cancelar a compra #${p.id}? O estoque recebido será estornado.`))) return;
+          const r = await fetch(`/api/commercial/purchases/${p.id}/cancel`, { method: 'POST' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
         addItem() {
           const p = this.products.find((x) => x.id === this.item.productId);
           const cost = this.cents(this.item.cost);
@@ -104,6 +129,14 @@
         },
         total() { return this.form.items.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
         async save() {
+          if (this.form.id) {
+            const r = await fetch(`/api/commercial/purchases/${this.form.id}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ supplierId: this.form.supplierId, notes: this.form.notes || undefined }),
+            });
+            if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+            return;
+          }
           if (!this.form.supplierId || !this.form.items.length) { this.dlgError = 'Fornecedor e ao menos um item.'; return; }
           const r = await fetch('/api/commercial/purchases', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },

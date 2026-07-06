@@ -23,6 +23,8 @@ const manifest: ModuleManifest = {
     { key: 'commercial.stock.move', description: 'Movimentar estoque (entrada/saída/ajuste)' },
     { key: 'commercial.purchases.view', description: 'Visualizar compras' },
     { key: 'commercial.purchases.create', description: 'Registrar compras' },
+    { key: 'commercial.purchases.edit', description: 'Editar dados da compra (fornecedor, observações)' },
+    { key: 'commercial.purchases.cancel', description: 'Cancelar compra (reverte estoque)' },
   ],
   routes: './routes',
   pages: './pages',

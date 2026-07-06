@@ -159,7 +159,7 @@ router.post('/stock/move', requirePermission('commercial.stock.move'), (req, res
 // ---------- Compras (recebimento gera entrada de estoque) ----------
 router.get('/purchases', requirePermission('commercial.purchases.view'), (_req, res) => {
   res.json(db().prepare(
-    `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.received_at, pu.updated_at
+    `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.notes, pu.received_at, pu.updated_at
      FROM purchases pu JOIN suppliers s ON s.id = pu.supplier_id
      WHERE pu.deleted_at IS NULL ORDER BY pu.id DESC`,
   ).all());
@@ -209,6 +209,72 @@ router.post('/purchases', requirePermission('commercial.purchases.create'), (req
   }
   audit(req, 'criar', 'purchase', purchaseId, null, { supplierId, items });
   res.status(201).json({ id: purchaseId });
+});
+
+router.put('/purchases/:id', requirePermission('commercial.purchases.edit'), (req, res) => {
+  const id = String(req.params.id);
+  const before = db().prepare('SELECT id, supplier_id, status, notes FROM purchases WHERE id = ? AND deleted_at IS NULL').get(id) as
+    { id: number; supplier_id: number; status: string; notes: string | null } | undefined;
+  if (!before) {
+    res.status(404).json({ error: 'Compra não encontrada.' });
+    return;
+  }
+  if (before.status === 'cancelada') {
+    res.status(400).json({ error: 'Compra cancelada não pode ser editada.' });
+    return;
+  }
+  const { supplierId, notes } = req.body ?? {};
+  if (supplierId != null) {
+    const supplier = db().prepare('SELECT id FROM suppliers WHERE id = ? AND deleted_at IS NULL').get(supplierId);
+    if (!supplier) {
+      res.status(400).json({ error: 'Fornecedor inexistente.' });
+      return;
+    }
+  }
+  db().prepare(
+    `UPDATE purchases SET supplier_id = COALESCE(?, supplier_id), notes = COALESCE(?, notes), updated_at = datetime('now') WHERE id = ?`,
+  ).run(supplierId ?? null, notes ?? null, id);
+  const after = db().prepare('SELECT id, supplier_id, status, notes FROM purchases WHERE id = ?').get(id);
+  audit(req, 'editar', 'purchase', id, before, after);
+  res.json(after);
+});
+
+router.post('/purchases/:id/cancel', requirePermission('commercial.purchases.cancel'), (req, res) => {
+  const id = Number(req.params.id);
+  const purchase = db().prepare('SELECT id, status FROM purchases WHERE id = ? AND deleted_at IS NULL').get(id) as
+    { id: number; status: string } | undefined;
+  if (!purchase) {
+    res.status(404).json({ error: 'Compra não encontrada.' });
+    return;
+  }
+  if (purchase.status === 'cancelada') {
+    res.status(400).json({ error: 'Compra já está cancelada.' });
+    return;
+  }
+  const items = db().prepare('SELECT product_id, qty FROM purchase_items WHERE purchase_id = ?').all(id) as
+    { product_id: number; qty: number }[];
+
+  const database = db();
+  let error: string | null = null;
+  try {
+    database.transaction(() => {
+      for (const item of items) {
+        // allowNegative: a mercadoria recebida por esta compra pode já ter sido vendida.
+        const move = moveStockRaw(req, item.product_id, 'saida', item.qty, 'cancelamento de compra', 'purchase', id, true);
+        if (!move.ok) throw new Error(move.error);
+      }
+      database.prepare(`UPDATE purchases SET status = 'cancelada', updated_at = datetime('now') WHERE id = ?`).run(id);
+    })();
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+
+  if (error) {
+    res.status(400).json({ error });
+    return;
+  }
+  audit(req, 'cancelar', 'purchase', id, { status: purchase.status }, { status: 'cancelada' });
+  res.json({ ok: true });
 });
 
 export default router;

@@ -28,12 +28,13 @@
           <tr>
             <td>
               <span x-text="p.name"></span>
-              <span class="badge off" x-show="p.track_stock && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
+              <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
+              <span class="badge off" x-show="p.track_stock && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
             <td class="muted" x-text="p.category ?? '—'"></td>
             <td x-text="brl(p.price_cents)"></td>
             <td class="muted" x-text="brl(p.cost_cents)"></td>
-            <td x-text="p.track_stock ? p.stock_qty : '—'"></td>
+            <td :style="p.track_stock && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock ? p.stock_qty : '—'"></td>
             <td class="muted" x-text="p.unit"></td>
             <td style="text-align:right">
               <% if (user.permissions.has('commercial.stock.move')) { %>

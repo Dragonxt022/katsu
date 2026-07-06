@@ -18,6 +18,8 @@ export function moveStockRaw(
   reason?: string,
   refEntity?: string,
   refId?: string | number,
+  /** Permite saldo negativo (ex.: venda no PDV não pode travar por falta de estoque). */
+  allowNegative = false,
 ): { ok: true; balance: number } | { ok: false; error: string } {
   if (!Number.isFinite(qty) || (type !== 'ajuste' && qty <= 0)) {
     return { ok: false, error: 'Quantidade inválida.' };
@@ -35,7 +37,9 @@ export function moveStockRaw(
     : type === 'saida' ? product.stock_qty - qty
     : qty;
 
-  if (balance < 0) return { ok: false, error: `Estoque insuficiente: saldo ${product.stock_qty}, saída ${qty}.` };
+  if (balance < 0 && !allowNegative) {
+    return { ok: false, error: `Estoque insuficiente: saldo ${product.stock_qty}, saída ${qty}.` };
+  }
 
   db.prepare(`UPDATE products SET stock_qty = ?, updated_at = datetime('now') WHERE id = ?`).run(balance, productId);
   db.prepare(

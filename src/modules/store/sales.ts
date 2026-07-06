@@ -174,7 +174,8 @@ export function createSale(
       );
       for (const i of items) {
         insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.totalCents);
-        const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId);
+        // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
+        const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
       }
 
