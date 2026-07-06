@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
   <title>Katsu — Vendas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
@@ -14,7 +15,7 @@
     <h1>Vendas</h1>
     <div class="toolbar">
       <input type="date" x-model="day" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
       <% if (user.permissions.has('store.reports.view')) { %>
         <span class="muted">Dia: <strong x-text="report.totals ? report.totals.vendas : 0"></strong> vendas ·
           total <strong x-text="brl(report.totals ? report.totals.total_cents : 0)"></strong></span>

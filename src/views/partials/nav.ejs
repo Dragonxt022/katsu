@@ -1,15 +1,14 @@
-<div x-data="{ appsOpen: false, userOpen: false }">
+<div x-data="{
+  appsOpen: false, userOpen: false,
+  theme: document.documentElement.getAttribute('data-theme') || 'light',
+  toggleTheme() {
+    this.theme = this.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', this.theme);
+    try { localStorage.setItem('katsu-theme', this.theme); } catch (e) {}
+  },
+}">
 <header class="nav">
-  <div class="nav-left">
-    <% if (user) { %>
-    <button class="btn-icon" @click="appsOpen = true" title="Aplicações" aria-label="Aplicações">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-        <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-        <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
-      </svg>
-    </button>
-    <% } %>
-  </div>
+  <div class="nav-left"></div>
 
   <a href="/" class="brand">
     <img class="logo" src="/favicon.png" alt="Katsu" />
@@ -25,6 +24,13 @@
     <button class="btn-icon" @mousedown.prevent @click="userOpen = true" title="Sair / trocar usuário" aria-label="Sair ou trocar usuário">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
+
+    <button class="btn-icon" @click="appsOpen = true" title="Aplicações" aria-label="Aplicações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
       </svg>
     </button>
   </div>
@@ -78,6 +84,20 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
+    </button>
+  </div>
+  <div class="theme-row">
+    <span>Tema</span>
+    <button class="theme-switch" :class="{ dark: theme === 'dark' }" @click="toggleTheme()"
+            :aria-label="theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+      <span class="theme-switch-thumb"></span>
     </button>
   </div>
   <nav class="apps-drawer-list">

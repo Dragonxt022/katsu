@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
   <title>Katsu — Caixa</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
@@ -19,7 +20,7 @@
         <% if (user.permissions.has('finance.cash.open')) { %>
         <div class="toolbar">
           <input type="text" placeholder="Fundo de troco (R$)" x-model="opening" @input="opening = maskMoney(opening)"
-                 style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+                 style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
           <button class="btn" @click="openCash()">Abrir caixa</button>
           <span class="error" x-text="error"></span>
         </div>

@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
   <title>Katsu — Fluxo de caixa</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
@@ -14,9 +15,9 @@
     <h1>Fluxo de caixa</h1>
     <div class="toolbar">
       <input type="date" x-model="from" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
       <input type="date" x-model="to" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
       <span class="muted">Total: entradas <strong x-text="brl(totals.entradas)"></strong> ·
         saídas <strong x-text="brl(totals.saidas)"></strong> ·
         saldo <strong x-text="brl(totals.saldo)"></strong></span>
