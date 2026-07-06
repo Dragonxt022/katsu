@@ -56,7 +56,7 @@
           if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Falha no backup.';
         },
         async restore(b) {
-          if (!confirm('Restaurar este backup? Os dados atuais serão substituídos.')) return;
+          if (!await window.confirmDlg('Restaurar este backup? Os dados atuais serão substituídos.')) return;
           const r = await fetch(`/api/backup/${b.id}/restore`, { method: 'POST' });
           if (r.ok) alert('Backup restaurado com sucesso.');
           else this.error = (await r.json()).error ?? 'Falha na restauração.';

@@ -116,7 +116,7 @@
           else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
         },
         async remove(p) {
-          if (!confirm(`Excluir "${p.name}"?`)) return;
+          if (!await window.confirmDlg(`Excluir "${p.name}"?`)) return;
           const r = await fetch(`/api/commercial/products/${p.id}`, { method: 'DELETE' });
           if (r.ok) this.load(); else this.error = (await r.json()).error;
         },

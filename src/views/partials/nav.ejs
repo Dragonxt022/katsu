@@ -48,3 +48,5 @@
     </div>
   </div>
 </header>
+<script>(function(){var c=HTMLDialogElement.prototype.close;HTMLDialogElement.prototype.close=function(){if(this.hasAttribute('open')){var d=this;d.style.animation='dialog-out 150ms ease forwards';d.addEventListener('animationend',function h(){d.removeEventListener('animationend',h);d.style.animation='';c.call(d)})}else c.call(this)}})()</script>
+<%- include('confirm') %>

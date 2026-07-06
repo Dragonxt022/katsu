@@ -20,7 +20,7 @@ function crudPage(apiBase) {
       else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
     },
     async remove(row) {
-      if (!confirm(`Excluir "${row.name}"?`)) return;
+      if (!await window.confirmDlg(`Excluir "${row.name}"?`)) return;
       const r = await fetch(`${apiBase}/${row.id}`, { method: 'DELETE' });
       if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
     },

@@ -93,7 +93,7 @@
           else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
         },
         async remove(u) {
-          if (!confirm(`Excluir o usuário "${u.name}"?`)) return;
+          if (!await window.confirmDlg(`Excluir o usuário "${u.name}"?`)) return;
           const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
           if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
         },

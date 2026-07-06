@@ -79,7 +79,7 @@
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },
         async settle(b) {
-          if (!confirm(`Confirmar "${b.description}" — ${this.brl(b.amount_cents)}?`)) return;
+          if (!await window.confirmDlg(`Confirmar "${b.description}" — ${this.brl(b.amount_cents)}?`)) return;
           const r = await fetch(`${api}/${b.id}/settle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
           if (r.ok) {
             const d = await r.json();
@@ -88,7 +88,7 @@
           } else this.error = (await r.json()).error;
         },
         async cancel(b) {
-          if (!confirm(`Cancelar "${b.description}"?`)) return;
+          if (!await window.confirmDlg(`Cancelar "${b.description}"?`)) return;
           const r = await fetch(`${api}/${b.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'cancelada' }) });
           if (r.ok) this.load(); else this.error = (await r.json()).error;
