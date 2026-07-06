@@ -21,8 +21,7 @@ export interface KatsuServer {
 /** Página protegida por permissão: sem permissão → volta para a home. */
 function page(view: string, permission?: string) {
   return (req: Request, res: Response, _next: NextFunction) => {
-    if (!req.user) return res.redirect('/?login=1');
-    if (permission && !req.user.permissions.has(permission)) return res.redirect('/');
+    if (permission && !req.user!.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }
@@ -45,7 +44,7 @@ export async function createServer(): Promise<KatsuServer> {
     res.json({ ok: true, name: 'katsu', ts: new Date().toISOString() });
   });
   app.use('/api/auth', authRoutes);
-  app.get('/login', (req, res) => {
+  app.get('/login', (_req, res) => {
     res.redirect('/?login=1');
   });
 
