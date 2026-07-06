@@ -66,9 +66,9 @@
         <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
       </div>
       <% if (user.permissions.has('commercial.products.price')) { %>
-        <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" />
+        <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
       <% } %>
-      <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" />
+      <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
       <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
       <template x-if="!form.id">
         <div>
@@ -102,6 +102,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function productsPage() {
       return {

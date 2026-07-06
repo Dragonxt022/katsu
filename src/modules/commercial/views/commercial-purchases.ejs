@@ -49,7 +49,7 @@
           <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
         </select>
         <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
-        <input type="text" placeholder="Custo un. R$" x-model="item.cost" />
+        <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
         <button class="btn secondary" @click="addItem()">+</button>
       </div>
 
@@ -73,6 +73,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function purchasesPage() {
       return {

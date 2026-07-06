@@ -18,7 +18,7 @@
         <p class="muted" style="margin-bottom:1rem">Nenhum caixa aberto.</p>
         <% if (user.permissions.has('finance.cash.open')) { %>
         <div class="toolbar">
-          <input type="text" placeholder="Fundo de troco (R$)" x-model="opening"
+          <input type="text" placeholder="Fundo de troco (R$)" x-model="opening" @input="opening = maskMoney(opening)"
                  style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6" />
           <button class="btn" @click="openCash()">Abrir caixa</button>
           <span class="error" x-text="error"></span>
@@ -61,7 +61,7 @@
 
     <dialog x-ref="mv">
       <h1 x-text="move.type === 'suprimento' ? 'Suprimento (entrada)' : 'Sangria (saída)'"></h1>
-      <label>Valor (R$)</label><input type="text" x-model="move.amount" placeholder="0,00" />
+      <label>Valor (R$)</label><input type="text" x-model="move.amount" placeholder="0,00" @input="move.amount = maskMoney(move.amount)" />
       <label>Descrição</label><input type="text" x-model="move.description" />
       <div class="error" x-text="mvError"></div>
       <div class="actions">
@@ -73,7 +73,7 @@
     <dialog x-ref="close">
       <h1>Fechar caixa</h1>
       <p class="muted">Esperado: <strong x-text="brl(expected)"></strong></p>
-      <label>Valor contado na gaveta (R$)</label><input type="text" x-model="counted" placeholder="0,00" />
+      <label>Valor contado na gaveta (R$)</label><input type="text" x-model="counted" placeholder="0,00" @input="counted = maskMoney(counted)" />
       <label>Observações</label><input type="text" x-model="closeNotes" />
       <div class="error" x-text="closeError"></div>
       <div class="actions">
@@ -82,6 +82,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function cashPage() {
       return {

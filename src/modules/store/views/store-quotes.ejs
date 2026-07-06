@@ -79,7 +79,7 @@
       </div>
       <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
       <% if (user.permissions.has('store.sales.discount')) { %>
-        <label>Desconto (R$)</label><input type="text" x-model="form.discount" placeholder="0,00" />
+        <label>Desconto (R$)</label><input type="text" x-model="form.discount" placeholder="0,00" @input="form.discount = maskMoney(form.discount)" />
       <% } %>
       <label>Válido até</label><input type="date" x-model="form.validUntil" />
       <label>Observações</label><input type="text" x-model="form.notes" />
@@ -102,7 +102,7 @@
         <option value="prazo">A prazo (fiado)</option>
       </select>
       <template x-if="conv.method === 'dinheiro'">
-        <div><label>Valor recebido (R$)</label><input type="text" x-model="conv.received" placeholder="0,00" /></div>
+        <div><label>Valor recebido (R$)</label><input type="text" x-model="conv.received" placeholder="0,00" @input="conv.received = maskMoney(conv.received)" /></div>
       </template>
       <template x-if="conv.method === 'prazo'">
         <div>
@@ -121,6 +121,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function quotesPage() {
       return {

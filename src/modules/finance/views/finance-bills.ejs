@@ -51,7 +51,7 @@
     <dialog x-ref="dlg">
       <h1>Nova conta</h1>
       <label>Descrição</label><input type="text" x-model="form.description" />
-      <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" />
+      <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" @input="form.amount = maskMoney(form.amount)" />
       <label>Vencimento</label><input type="date" x-model="form.dueDate" />
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
@@ -61,6 +61,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function billsPage(api) {
       return {
