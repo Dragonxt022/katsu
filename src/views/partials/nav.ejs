@@ -1,5 +1,7 @@
 <div x-data="{
   appsOpen: false, userOpen: false,
+  now: new Date().toLocaleTimeString('pt-BR'),
+  init() { setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, 1000); },
   theme: document.documentElement.getAttribute('data-theme') || 'light',
   toggleTheme() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
@@ -8,7 +10,12 @@
   },
 }">
 <header class="nav">
-  <div class="nav-left"></div>
+  <div class="nav-left">
+    <svg class="nav-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+    <span class="nav-clock" x-text="now"></span>
+  </div>
 
   <a href="/" class="brand">
     <img class="logo" :src="theme === 'dark' ? '/favicon_branco.png' : '/favicon.png'" alt="Katsu" />

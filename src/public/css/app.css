@@ -113,6 +113,18 @@ header.nav img.logo { width: 25px; height: 25px; }
 header.nav .nav-left {
   justify-self: start;
   display: flex; align-items: center;
+  gap: .35rem;
+}
+header.nav .nav-clock-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+header.nav .nav-clock {
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
 }
 header.nav .brand {
   justify-self: center;
