@@ -22,5 +22,6 @@ router.get('/receber', page('finance-bills', 'finance.receivables.view', {
     partyLabel: 'Cliente', settledStatus: 'recebida' },
 }));
 router.get('/fluxo', page('finance-cashflow', 'finance.reports.view'));
+router.get('/formas-pagamento', page('finance-paymethods', 'finance.paymethods.view'));
 
 export default router;

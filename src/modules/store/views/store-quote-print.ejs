@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Orçamento #<%= quote.id %></title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; font-size: 13px; color: #000; background: #fff;
+      max-width: 190mm; margin: 0 auto; padding: 12mm; }
+    h1 { font-size: 20px; margin-bottom: 2px; }
+    h2 { font-size: 15px; margin: 14px 0 6px; }
+    .muted { color: #555; font-size: 11px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+    th { background: #f2f2f2; font-size: 12px; }
+    .right { text-align: right; }
+    .total { font-size: 16px; font-weight: bold; }
+    @media print { .no-print { display: none; } }
+    .no-print { text-align: center; margin-top: 16px; }
+    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
+  <h1><%= company %></h1>
+  <p class="muted">Orçamento — documento sem valor fiscal</p>
+
+  <h2>Orçamento nº <%= quote.id %><% if (quote.status !== 'aberto') { %> (<%= quote.status %>)<% } %></h2>
+  <p>Data: <%= quote.created_at %></p>
+  <% if (quote.customer || quote.customer_name) { %><p>Cliente: <%= quote.customer ?? quote.customer_name %></p><% } %>
+  <% if (quote.valid_until) { %><p><strong>Válido até: <%= quote.valid_until %></strong></p><% } %>
+
+  <table>
+    <thead><tr><th>Item</th><th class="right">Qtd</th><th class="right">Preço un.</th><th class="right">Total</th></tr></thead>
+    <tbody>
+      <% items.forEach(function (i) { %>
+        <tr>
+          <td><%= i.product_name %></td>
+          <td class="right"><%= i.qty %></td>
+          <td class="right"><%= brl(i.unit_price_cents) %></td>
+          <td class="right"><%= brl(i.total_cents) %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3" class="right">Subtotal</td><td class="right"><%= brl(quote.subtotal_cents) %></td></tr>
+      <% if (quote.discount_cents > 0) { %>
+        <tr><td colspan="3" class="right">Desconto</td><td class="right">-<%= brl(quote.discount_cents) %></td></tr>
+      <% } %>
+      <tr class="total"><td colspan="3" class="right">TOTAL</td><td class="right"><%= brl(quote.total_cents) %></td></tr>
+    </tfoot>
+  </table>
+
+  <% if (quote.notes) { %><p style="margin-top:10px"><strong>Observações:</strong> <%= quote.notes %></p><% } %>
+  <p class="muted" style="margin-top:16px">Preços garantidos até a validade indicada. Sujeito à disponibilidade de estoque.</p>
+
+  <div class="no-print">
+    <button onclick="window.print()">Imprimir</button>
+    <button onclick="window.close()">Fechar</button>
+  </div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>

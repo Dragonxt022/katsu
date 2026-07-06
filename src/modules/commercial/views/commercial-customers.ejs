@@ -45,8 +45,8 @@
     <dialog x-ref="dlg">
       <h1 x-text="form.id ? 'Editar cliente' : 'Novo cliente'"></h1>
       <label>Nome</label><input type="text" x-model="form.name" />
-      <label>CPF/CNPJ</label><input type="text" x-model="form.document" />
-      <label>Telefone</label><input type="text" x-model="form.phone" />
+      <label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" />
+      <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
       <label>E-mail</label><input type="text" x-model="form.email" />
       <label>Endereço</label><input type="text" x-model="form.address" />
       <label>Observações</label><input type="text" x-model="form.notes" />
@@ -57,6 +57,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script src="/js/crud-page.js"></script>
 </body>
 </html>

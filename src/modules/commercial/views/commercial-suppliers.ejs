@@ -46,8 +46,8 @@
       <h1 x-text="form.id ? 'Editar fornecedor' : 'Novo fornecedor'"></h1>
       <label>Razão social</label><input type="text" x-model="form.name" />
       <label>Nome fantasia</label><input type="text" x-model="form.trade_name" />
-      <label>CNPJ/CPF</label><input type="text" x-model="form.document" />
-      <label>Telefone</label><input type="text" x-model="form.phone" />
+      <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="00.000.000/0000-00" />
+      <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
       <label>E-mail</label><input type="text" x-model="form.email" />
       <label>Endereço</label><input type="text" x-model="form.address" />
       <div class="error" x-text="dlgError"></div>
@@ -57,6 +57,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script src="/js/crud-page.js"></script>
 </body>
 </html>

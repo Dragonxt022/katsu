@@ -120,6 +120,16 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
       continue;
     }
 
+    // setup: registra serviços do módulo no Core ANTES das rotas (outros módulos dependem)
+    if (manifest.setup) {
+      const basePath = path.join(dir, manifest.setup);
+      const resolved = [basePath, `${basePath}.ts`, `${basePath}.js`].find((p) => fs.existsSync(p));
+      if (resolved) {
+        const setupModule = await importFile(resolved);
+        await (setupModule.default ?? setupModule.setup)?.();
+      }
+    }
+
     const router = manifest.routes ? await importRouter(dir, manifest.routes) : undefined;
     if (router) app.use(`/api/${manifest.id}`, router);
 

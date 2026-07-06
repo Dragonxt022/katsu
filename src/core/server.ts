@@ -5,6 +5,7 @@ import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
 import usersRoutes from './users/routes';
+import rolesRoutes from './roles/routes';
 import auditRoutes from './audit/routes';
 import settingsRoutes from './config/routes';
 import backupRoutes from './backup/routes';
@@ -50,6 +51,7 @@ export async function createServer(): Promise<KatsuServer> {
 
   // API do Core (auth + RBAC por rota)
   app.use('/api/users', requireAuth, usersRoutes);
+  app.use('/api/roles', requireAuth, rolesRoutes);
   app.use('/api/audit', requireAuth, auditRoutes);
   app.use('/api/settings', requireAuth, settingsRoutes);
   app.use('/api/backup', requireAuth, backupRoutes);
@@ -58,6 +60,7 @@ export async function createServer(): Promise<KatsuServer> {
   // Páginas do Core
   app.get('/', requireAuth, page('home'));
   app.get('/admin/usuarios', requireAuth, page('users', 'users.view'));
+  app.get('/admin/cargos', requireAuth, page('roles', 'roles.view'));
   app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));
   app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));

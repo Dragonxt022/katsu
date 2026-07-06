@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Cargos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'roles' }) %>
+  <main x-data="rolesPage()" x-init="load()">
+    <h1>Cargos e permissões</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('roles.edit')) { %>
+        <button class="btn" @click="openNew()">Novo cargo</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Cargo</th><th>Usuários</th><th>Permissões</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="r in roles" :key="r.id">
+          <tr>
+            <td><span x-text="r.name"></span>
+              <span class="badge ok" x-show="r.is_system" style="margin-left:.4rem">sistema</span></td>
+            <td x-text="r.users"></td>
+            <td class="muted" x-text="r.slug === 'administrador' ? 'todas' : r.permissions.length"></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('roles.edit')) { %>
+                <button class="btn secondary small" x-show="r.slug !== 'administrador'" @click="openEdit(r)">Permissões</button>
+                <button class="btn small" x-show="!r.is_system" @click="remove(r)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg" style="width:560px;max-height:80vh;overflow-y:auto">
+      <h1 x-text="'Permissões — ' + (editing.name ?? '')"></h1>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .8rem">
+        <span class="muted" style="font-size:.8rem;align-self:center">Modelos:</span>
+        <template x-for="(keys, name) in presets" :key="name">
+          <button class="btn secondary small" type="button" @click="applyPreset(name)" x-text="name"></button>
+        </template>
+        <button class="btn secondary small" type="button" @click="selected = []">Limpar</button>
+        <button class="btn secondary small" type="button" @click="selected = perms.map(p => p.key)">Tudo</button>
+      </div>
+      <template x-for="mod in modules" :key="mod">
+        <div style="margin-bottom:.8rem">
+          <h2 style="font-size:.9rem;margin:.6rem 0 .3rem;text-transform:uppercase;letter-spacing:.03em" class="muted" x-text="mod"></h2>
+          <template x-for="p in byModule[mod]" :key="p.key">
+            <label style="display:flex;align-items:center;gap:.5rem;padding:.25rem 0;font-size:.9rem;cursor:pointer">
+              <input type="checkbox" :value="p.key" x-model="selected" style="width:auto" />
+              <span x-text="p.description"></span>
+              <span class="muted" style="font-size:.75rem" x-text="p.key"></span>
+            </label>
+          </template>
+        </div>
+      </template>
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="novo">
+      <h1>Novo cargo</h1>
+      <label>Nome</label><input type="text" x-model="newName" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.novo.close()">Cancelar</button>
+        <button class="btn" @click="create()">Criar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function rolesPage() {
+      return {
+        roles: [], perms: [], byModule: {}, modules: [], selected: [], editing: {}, newName: '',
+        error: '', dlgError: '',
+        // Modelos prontos: um clique marca as permissões típicas do papel
+        presets: {
+          'Vendedor': ['store.sales.create', 'store.sales.view', 'store.quotes.view', 'store.quotes.create',
+            'commercial.products.view', 'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit'],
+          'Caixa': ['store.sales.create', 'store.sales.view', 'finance.cash.view', 'finance.cash.open',
+            'finance.cash.close', 'finance.cash.move', 'commercial.products.view', 'commercial.customers.view'],
+          'Estoquista': ['commercial.products.view', 'commercial.products.create', 'commercial.products.edit',
+            'commercial.stock.view', 'commercial.stock.move', 'commercial.purchases.view', 'commercial.purchases.create',
+            'commercial.suppliers.view'],
+          'Gerente': ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view',
+            'backup.view', 'backup.run', 'finance.cash.view', 'finance.cash.open', 'finance.cash.close', 'finance.cash.move',
+            'finance.payables.view', 'finance.payables.create', 'finance.payables.pay', 'finance.receivables.view',
+            'finance.receivables.create', 'finance.receivables.receive', 'finance.reports.view', 'finance.paymethods.view',
+            'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit',
+            'commercial.suppliers.view', 'commercial.suppliers.create', 'commercial.suppliers.edit',
+            'commercial.products.view', 'commercial.products.create', 'commercial.products.edit', 'commercial.products.price',
+            'commercial.stock.view', 'commercial.stock.move', 'commercial.purchases.view', 'commercial.purchases.create',
+            'store.sales.view', 'store.sales.create', 'store.sales.discount', 'store.sales.cancel',
+            'store.quotes.view', 'store.quotes.create', 'store.reports.view'],
+        },
+        applyPreset(name) {
+          const valid = new Set(this.perms.map((p) => p.key));
+          this.selected = (this.presets[name] ?? []).filter((k) => valid.has(k));
+        },
+        async load() {
+          const r = await fetch('/api/roles');
+          if (r.ok) this.roles = await r.json();
+          const p = await fetch('/api/roles/permissions');
+          if (p.ok) {
+            this.perms = await p.json();
+            this.byModule = {};
+            for (const perm of this.perms) {
+              (this.byModule[perm.module] ??= []).push(perm);
+            }
+            this.modules = Object.keys(this.byModule).sort();
+          }
+        },
+        openEdit(r) { this.editing = r; this.selected = [...r.permissions]; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        async save() {
+          const r = await fetch(`/api/roles/${this.editing.id}/permissions`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions: this.selected }),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        openNew() { this.newName = ''; this.dlgError = ''; this.$refs.novo.showModal(); },
+        async create() {
+          const r = await fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: this.newName }) });
+          if (r.ok) { this.$refs.novo.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        async remove(r) {
+          if (!await window.confirmDlg(`Excluir o cargo "${r.name}"?`)) return;
+          const resp = await fetch(`/api/roles/${r.id}`, { method: 'DELETE' });
+          if (resp.ok) this.load(); else this.error = (await resp.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

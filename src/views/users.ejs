@@ -16,6 +16,8 @@
       <% if (user.permissions.has('users.create')) { %>
         <button class="btn" @click="openNew()">Novo usuário</button>
       <% } %>
+      <input type="text" placeholder="Filtrar por nome, usuário ou cargo…" x-model="q"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light, #2c313c);background:transparent;color:inherit;min-width:260px" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -23,7 +25,7 @@
         <tr><th>Nome</th><th>Usuário</th><th>Cargo</th><th>Status</th><th>Último login</th><th></th></tr>
       </thead>
       <tbody>
-        <template x-for="u in users" :key="u.id">
+        <template x-for="u in filtered()" :key="u.id">
           <tr>
             <td x-text="u.name"></td>
             <td x-text="u.username"></td>
@@ -70,10 +72,20 @@
     function usersPage() {
       return {
         users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
-        form: {}, error: '', dlgError: '',
+        form: {}, q: '', error: '', dlgError: '',
+        filtered() {
+          if (!this.q.trim()) return this.users;
+          const t = this.q.toLowerCase();
+          return this.users.filter((u) =>
+            (u.name ?? '').toLowerCase().includes(t) ||
+            (u.username ?? '').toLowerCase().includes(t) ||
+            (u.role ?? '').toLowerCase().includes(t));
+        },
         async load() {
           const r = await fetch('/api/users');
           if (r.ok) this.users = await r.json(); else this.error = (await r.json()).error;
+          const roles = await fetch('/api/users/roles');
+          if (roles.ok) this.roles = (await roles.json()).map((x) => x.slug);
         },
         openNew() { this.form = { roleSlug: 'operador' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(u) {

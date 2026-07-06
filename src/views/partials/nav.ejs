@@ -33,6 +33,9 @@
         <% if (user.permissions.has('users.view')) { %>
           <a href="/admin/usuarios" style="display:block;padding:.45rem .7rem;border-radius:6px;color:var(--text);text-decoration:none;font-size:.85rem" @click="menuOpen = false"><%= page === 'users' ? '› ' : '' %>Usuários</a>
         <% } %>
+        <% if (user.permissions.has('roles.view')) { %>
+          <a href="/admin/cargos" style="display:block;padding:.45rem .7rem;border-radius:6px;color:var(--text);text-decoration:none;font-size:.85rem" @click="menuOpen = false"><%= page === 'roles' ? '› ' : '' %>Cargos</a>
+        <% } %>
         <% if (user.permissions.has('audit.view')) { %>
           <a href="/admin/auditoria" style="display:block;padding:.45rem .7rem;border-radius:6px;color:var(--text);text-decoration:none;font-size:.85rem" @click="menuOpen = false"><%= page === 'audit' ? '› ' : '' %>Auditoria</a>
         <% } %>
@@ -43,6 +46,7 @@
           <a href="/admin/configuracoes" style="display:block;padding:.45rem .7rem;border-radius:6px;color:var(--text);text-decoration:none;font-size:.85rem" @click="menuOpen = false"><%= page === 'settings' ? '› ' : '' %>Configurações</a>
         <% } %>
         <hr style="margin:.3rem 0;border:0;border-top:1px solid var(--border-light)" />
+        <button @click="menuOpen = false; window.changePasswordDlg()" style="display:block;width:100%;text-align:left;padding:.45rem .7rem;border:0;border-radius:6px;background:transparent;color:var(--text);cursor:pointer;font-size:.85rem">Trocar senha</button>
         <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login')" style="display:block;width:100%;text-align:left;padding:.45rem .7rem;border:0;border-radius:6px;background:transparent;color:var(--danger);cursor:pointer;font-size:.85rem">Sair</button>
       </div>
     </div>
@@ -50,3 +54,4 @@
 </header>
 <script>(function(){var c=HTMLDialogElement.prototype.close;HTMLDialogElement.prototype.close=function(){if(this.hasAttribute('open')){var d=this;d.style.animation='dialog-out 150ms ease forwards';d.addEventListener('animationend',function h(){d.removeEventListener('animationend',h);d.style.animation='';c.call(d)})}else c.call(this)}})()</script>
 <%- include('confirm') %>
+<%- include('password') %>

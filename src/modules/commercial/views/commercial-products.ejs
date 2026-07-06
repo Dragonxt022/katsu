@@ -21,7 +21,7 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Produto</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
+      <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
       <tbody>
         <template x-for="p in rows" :key="p.id">
           <tr>
@@ -29,6 +29,7 @@
               <span x-text="p.name"></span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
+            <td class="muted" x-text="p.category ?? '—'"></td>
             <td x-text="brl(p.price_cents)"></td>
             <td class="muted" x-text="brl(p.cost_cents)"></td>
             <td x-text="p.track_stock ? p.stock_qty : '—'"></td>
@@ -55,11 +56,26 @@
       <label>Código de barras</label><input type="text" x-model="form.barcode" />
       <label>SKU</label><input type="text" x-model="form.sku" />
       <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
+      <label>Categoria</label>
+      <select x-model.number="form.categoryId">
+        <option value="">— sem categoria —</option>
+        <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+      </select>
+      <div style="display:flex;gap:.4rem;margin-top:.3rem">
+        <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
+        <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
+      </div>
       <% if (user.permissions.has('commercial.products.price')) { %>
         <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" />
       <% } %>
       <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" />
       <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+      <template x-if="!form.id">
+        <div>
+          <label>Estoque inicial (opcional)</label>
+          <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+        </div>
+      </template>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
@@ -89,23 +105,40 @@
   <script>
     function productsPage() {
       return {
-        rows: [], form: {}, move: {}, q: '', error: '', dlgError: '', mvError: '',
+        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/products' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          const c = await fetch('/api/commercial/categories');
+          if (c.ok) this.categories = await c.json();
+        },
+        async addCategory() {
+          if (!this.newCat.trim()) return;
+          const r = await fetch('/api/commercial/categories', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: this.newCat.trim() }) });
+          if (r.ok) {
+            const created = await r.json();
+            const c = await fetch('/api/commercial/categories');
+            if (c.ok) this.categories = await c.json();
+            this.form.categoryId = created.id;
+            this.newCat = '';
+          } else this.dlgError = (await r.json()).error;
         },
         openNew() { this.form = { unit: 'un' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(p) {
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
+            categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock };
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         async save() {
           const body = { name: this.form.name, barcode: this.form.barcode || null, sku: this.form.sku || null,
-            unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined };
+            unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
+            categoryId: this.form.categoryId || null,
+            initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
           const isEdit = !!this.form.id;

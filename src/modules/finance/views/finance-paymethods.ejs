@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Formas de pagamento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/finance/formas-pagamento' }) %>
+  <main x-data="payMethodsPage()" x-init="load()">
+    <h1>Formas de pagamento</h1>
+    <p class="muted" style="margin-bottom:1rem">Cadastre cada maquininha/condição com a taxa real (ex.: "Débito — Stone" com 1,60%). A taxa é descontada nos relatórios de venda.</p>
+    <div class="toolbar">
+      <% if (user.permissions.has('finance.paymethods.edit')) { %>
+        <button class="btn" @click="openNew()">Nova forma</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Taxa</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="m in rows" :key="m.id">
+          <tr>
+            <td x-text="m.name"></td>
+            <td class="muted" x-text="labels[m.type] ?? m.type"></td>
+            <td x-text="(m.fee_bps / 100).toFixed(2).replace('.', ',') + '%'"></td>
+            <td><span class="badge" :class="m.active ? 'ok' : 'off'" x-text="m.active ? 'ativa' : 'inativa'"></span></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('finance.paymethods.edit')) { %>
+                <button class="btn secondary small" @click="openEdit(m)">Editar</button>
+                <button class="btn small" @click="toggle(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1 x-text="form.id ? 'Editar forma' : 'Nova forma de pagamento'"></h1>
+      <label>Nome (ex.: Débito — Stone)</label><input type="text" x-model="form.name" />
+      <template x-if="!form.id">
+        <div>
+          <label>Tipo</label>
+          <select x-model="form.type">
+            <option value="dinheiro">Dinheiro (passa pela gaveta, com troco)</option>
+            <option value="debito">Cartão de débito</option>
+            <option value="credito">Cartão de crédito</option>
+            <option value="pix">PIX</option>
+            <option value="prazo">A prazo (gera conta a receber)</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </template>
+      <label>Taxa da operadora (%)</label>
+      <input type="text" x-model="form.fee" placeholder="1,60" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function payMethodsPage() {
+      return {
+        rows: [], form: {}, error: '', dlgError: '',
+        labels: { dinheiro: 'Dinheiro', debito: 'Débito', credito: 'Crédito', pix: 'PIX', prazo: 'A prazo', outro: 'Outro' },
+        bps(s) { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
+        async load() {
+          const r = await fetch('/api/finance/payment-methods?all=1');
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = { type: 'debito', fee: '' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(m) {
+          this.form = { id: m.id, name: m.name, fee: (m.fee_bps / 100).toFixed(2).replace('.', ',') };
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const body = isEdit
+            ? { name: this.form.name, feeBps: this.bps(this.form.fee) }
+            : { name: this.form.name, type: this.form.type, feeBps: this.bps(this.form.fee) };
+          const r = await fetch(isEdit ? `/api/finance/payment-methods/${this.form.id}` : '/api/finance/payment-methods', {
+            method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        async toggle(m) {
+          const r = await fetch(`/api/finance/payment-methods/${m.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: !m.active }),
+          });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

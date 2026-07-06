@@ -25,6 +25,8 @@ export interface ModuleManifest {
   views?: string;
   /** Pasta de migrations do módulo (o migrator descobre sozinho por convenção). */
   migrations?: string;
+  /** Arquivo executado no boot (export default function): registra serviços no Core. */
+  setup?: string;
   menu?: ModuleMenuItem[];
 }
 

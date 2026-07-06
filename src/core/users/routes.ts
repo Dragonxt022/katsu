@@ -17,6 +17,11 @@ function getUser(id: number | string) {
     .get(id);
 }
 
+/** Cargos disponíveis para o cadastro de usuário (inclui personalizados). */
+router.get('/roles', requirePermission('users.view'), (_req, res) => {
+  res.json(getSqlite().prepare('SELECT slug, name FROM roles WHERE deleted_at IS NULL ORDER BY is_system DESC, name').all());
+});
+
 router.get('/', requirePermission('users.view'), (_req, res) => {
   const users = getSqlite()
     .prepare(

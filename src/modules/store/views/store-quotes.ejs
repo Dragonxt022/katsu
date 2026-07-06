@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Katsu — Orçamentos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/store/orcamentos' }) %>
+  <main x-data="quotesPage()" x-init="load()">
+    <h1>Orçamentos</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('store.quotes.create')) { %>
+        <button class="btn" @click="openNew()">Novo orçamento</button>
+      <% } %>
+      <select x-model="status" @change="load()"
+              style="padding:.5rem .8rem;border-radius:8px;border:1px solid #2c313c;background:#12141a;color:#e6e6e6">
+        <option value="">Todos</option>
+        <option value="aberto">Abertos</option>
+        <option value="convertido">Convertidos</option>
+        <option value="cancelado">Cancelados</option>
+      </select>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Válido até</th><th>Status</th><th>Vendedor</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="q in rows" :key="q.id">
+          <tr>
+            <td x-text="q.id"></td>
+            <td x-text="q.customer ?? q.customer_name ?? '—'"></td>
+            <td x-text="brl(q.total_cents)"></td>
+            <td class="muted" x-text="q.valid_until ?? '—'"></td>
+            <td><span class="badge" :class="q.status === 'aberto' ? 'off' : 'ok'" x-text="q.status"></span></td>
+            <td class="muted" x-text="q.username"></td>
+            <td style="text-align:right">
+              <button class="btn secondary small" @click="window.open(`/app/store/orcamentos/${q.id}/imprimir`, '_blank', 'width=800,height=900')">Imprimir</button>
+              <% if (user.permissions.has('store.sales.create')) { %>
+                <button class="btn small" x-show="q.status === 'aberto'" @click="openConvert(q)">Converter em venda</button>
+              <% } %>
+              <% if (user.permissions.has('store.quotes.create')) { %>
+                <button class="btn secondary small" x-show="q.status === 'aberto'" @click="cancel(q)">Cancelar</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg" style="width:600px">
+      <h1>Novo orçamento</h1>
+      <label>Cliente (cadastrado)</label>
+      <select x-model.number="form.customerId">
+        <option value="">— sem cadastro —</option>
+        <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+      </select>
+      <label>Ou nome avulso</label><input type="text" x-model="form.customerName" placeholder="Cliente de balcão" />
+
+      <label>Adicionar item</label>
+      <div style="display:grid;grid-template-columns:1fr 90px 70px;gap:.4rem;align-items:end">
+        <select x-model.number="item.productId">
+          <option value="">Produto…</option>
+          <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="`${p.name} — ${brl(p.price_cents)}`"></option></template>
+        </select>
+        <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
+        <button class="btn secondary" @click="addItem()">+</button>
+      </div>
+      <div style="margin-top:.8rem;max-height:160px;overflow-y:auto">
+        <template x-for="(i, idx) in form.items" :key="idx">
+          <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
+            <span x-text="`${i.name} — ${i.qty} × ${brl(i.price_cents)}`"></span>
+            <span><strong x-text="brl(Math.round(i.qty * i.price_cents))"></strong>
+              <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button></span>
+          </div>
+        </template>
+      </div>
+      <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
+      <% if (user.permissions.has('store.sales.discount')) { %>
+        <label>Desconto (R$)</label><input type="text" x-model="form.discount" placeholder="0,00" />
+      <% } %>
+      <label>Válido até</label><input type="date" x-model="form.validUntil" />
+      <label>Observações</label><input type="text" x-model="form.notes" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar orçamento</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="conv">
+      <h1>Converter orçamento #<span x-text="converting.id"></span></h1>
+      <p class="muted">Total: <strong x-text="brl(converting.total_cents)"></strong> — preços cotados serão honrados.</p>
+      <label>Forma de pagamento</label>
+      <select x-model="conv.method">
+        <option value="dinheiro">Dinheiro</option>
+        <option value="cartao_debito">Cartão de débito</option>
+        <option value="cartao_credito">Cartão de crédito</option>
+        <option value="pix">PIX</option>
+        <option value="prazo">A prazo (fiado)</option>
+      </select>
+      <template x-if="conv.method === 'dinheiro'">
+        <div><label>Valor recebido (R$)</label><input type="text" x-model="conv.received" placeholder="0,00" /></div>
+      </template>
+      <template x-if="conv.method === 'prazo'">
+        <div>
+          <label>Cliente</label>
+          <select x-model.number="conv.customerId">
+            <option value="">Selecione…</option>
+            <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+          </select>
+          <label>Vencimento</label><input type="date" x-model="conv.dueDate" />
+        </div>
+      </template>
+      <div class="error" x-text="convError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.conv.close()">Voltar</button>
+        <button class="btn" @click="convert()">Confirmar venda</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function quotesPage() {
+      return {
+        rows: [], customers: [], products: [], form: { items: [] }, item: {}, converting: {},
+        conv: { method: 'dinheiro', received: '', customerId: '', dueDate: '' },
+        status: 'aberto', error: '', dlgError: '', convError: '',
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
+        async load() {
+          const r = await fetch('/api/store/quotes' + (this.status ? `?status=${this.status}` : ''));
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        async refs() {
+          if (!this.customers.length) {
+            const c = await fetch('/api/commercial/customers'); if (c.ok) this.customers = await c.json();
+            const p = await fetch('/api/commercial/products'); if (p.ok) this.products = await p.json();
+          }
+        },
+        async openNew() {
+          this.form = { items: [], customerId: '', customerName: '', discount: '', validUntil: '', notes: '' };
+          this.item = {}; this.dlgError = '';
+          await this.refs();
+          this.$refs.dlg.showModal();
+        },
+        addItem() {
+          const p = this.products.find((x) => x.id === this.item.productId);
+          if (!p || !(this.item.qty > 0)) { this.dlgError = 'Escolha produto e quantidade.'; return; }
+          this.dlgError = '';
+          this.form.items.push({ productId: p.id, name: p.name, qty: this.item.qty, price_cents: p.price_cents });
+          this.item = {};
+        },
+        total() { return Math.max(0, this.form.items.reduce((a, i) => a + Math.round(i.qty * i.price_cents), 0) - this.cents(this.form.discount)); },
+        async save() {
+          const r = await fetch('/api/store/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: this.form.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+              customerId: this.form.customerId || undefined,
+              customerName: this.form.customerName || undefined,
+              discountCents: this.cents(this.form.discount) || undefined,
+              validUntil: this.form.validUntil || undefined,
+              notes: this.form.notes || undefined,
+            }) });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        async openConvert(q) {
+          this.converting = q; this.convError = '';
+          this.conv = { method: 'dinheiro', received: '', customerId: '', dueDate: '' };
+          await this.refs();
+          this.$refs.conv.showModal();
+        },
+        async convert() {
+          const r = await fetch(`/api/store/quotes/${this.converting.id}/convert`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentMethod: this.conv.method,
+              paidCents: this.conv.method === 'dinheiro' ? this.cents(this.conv.received) || undefined : undefined,
+              customerId: this.conv.method === 'prazo' ? this.conv.customerId || undefined : undefined,
+              dueDate: this.conv.method === 'prazo' ? this.conv.dueDate || undefined : undefined,
+            }) });
+          if (r.ok) {
+            const d = await r.json();
+            this.$refs.conv.close();
+            alert(`Venda #${d.id} gerada — ${this.brl(d.totalCents)}` + (d.changeCents ? `\nTroco: ${this.brl(d.changeCents)}` : ''));
+            this.load();
+          } else this.convError = (await r.json()).error;
+        },
+        async cancel(q) {
+          if (!await window.confirmDlg(`Cancelar o orçamento #${q.id}?`)) return;
+          const r = await fetch(`/api/store/quotes/${q.id}/cancel`, { method: 'POST' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

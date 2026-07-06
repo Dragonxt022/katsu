@@ -12,12 +12,17 @@
   <%- include('partials/nav', { user, page: 'audit' }) %>
   <main x-data="auditPage()" x-init="load()">
     <h1>Auditoria</h1>
+    <div class="toolbar">
+      <input type="text" placeholder="Filtrar por usuário, ação ou entidade…" x-model="q"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light, #2c313c);background:transparent;color:inherit;min-width:280px" />
+      <span class="muted" x-text="filtered().length + ' registro(s)'"></span>
+    </div>
     <table>
       <thead>
         <tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Entidade</th><th>ID</th><th>IP</th><th>Máquina</th></tr>
       </thead>
       <tbody>
-        <template x-for="l in logs" :key="l.id">
+        <template x-for="l in filtered()" :key="l.id">
           <tr>
             <td class="muted" x-text="l.created_at"></td>
             <td x-text="l.username ?? '—'"></td>
@@ -34,9 +39,17 @@
   <script>
     function auditPage() {
       return {
-        logs: [],
+        logs: [], q: '',
+        filtered() {
+          if (!this.q.trim()) return this.logs;
+          const t = this.q.toLowerCase();
+          return this.logs.filter((l) =>
+            (l.username ?? '').toLowerCase().includes(t) ||
+            (l.action ?? '').toLowerCase().includes(t) ||
+            (l.entity ?? '').toLowerCase().includes(t));
+        },
         async load() {
-          const r = await fetch('/api/audit?limit=200');
+          const r = await fetch('/api/audit?limit=500');
           if (r.ok) this.logs = await r.json();
         },
       };

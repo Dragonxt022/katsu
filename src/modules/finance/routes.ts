@@ -1,11 +1,68 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
+import { audit } from '../../core/audit/service';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement } from './cash';
 import { makeBillsRouter } from './bills';
 
 const router = Router();
 const db = () => getSqlite();
+
+// ---------- Formas de pagamento (taxa em basis points: 160 = 1,6%) ----------
+router.get('/payment-methods', requirePermission('finance.paymethods.view'), (req, res) => {
+  const all = req.query.all === '1';
+  const where = all ? '' : 'AND active = 1';
+  res.json(db().prepare(
+    `SELECT id, name, type, fee_bps, active, sort FROM payment_methods
+     WHERE deleted_at IS NULL ${where} ORDER BY sort, name`,
+  ).all());
+});
+
+router.post('/payment-methods', requirePermission('finance.paymethods.edit'), (req, res) => {
+  const { name, type, feeBps } = req.body ?? {};
+  const types = ['dinheiro', 'debito', 'credito', 'pix', 'prazo', 'outro'];
+  if (!name || !types.includes(type)) {
+    res.status(400).json({ error: `Campos: name, type (${types.join('|')}), feeBps opcional.` });
+    return;
+  }
+  const fee = Math.round(feeBps ?? 0);
+  if (fee < 0 || fee > 10000) {
+    res.status(400).json({ error: 'Taxa deve estar entre 0 e 10000 bps (0% a 100%).' });
+    return;
+  }
+  try {
+    const info = db().prepare(
+      'INSERT INTO payment_methods (name, type, fee_bps, sort, uuid) VALUES (?, ?, ?, 99, ?)',
+    ).run(name, type, fee, randomUUID());
+    audit(req, 'criar', 'payment_method', Number(info.lastInsertRowid), null, { name, type, feeBps: fee });
+    res.status(201).json({ id: Number(info.lastInsertRowid), name, type, fee_bps: fee });
+  } catch {
+    res.status(409).json({ error: 'Já existe uma forma de pagamento com esse nome.' });
+  }
+});
+
+router.put('/payment-methods/:id', requirePermission('finance.paymethods.edit'), (req, res) => {
+  const id = String(req.params.id);
+  const before = db().prepare('SELECT id, name, type, fee_bps, active FROM payment_methods WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
+    return;
+  }
+  const { name, feeBps, active, sort } = req.body ?? {};
+  if (feeBps != null && (Math.round(feeBps) < 0 || Math.round(feeBps) > 10000)) {
+    res.status(400).json({ error: 'Taxa deve estar entre 0 e 10000 bps.' });
+    return;
+  }
+  db().prepare(
+    `UPDATE payment_methods SET name = COALESCE(?, name), fee_bps = COALESCE(?, fee_bps),
+       active = COALESCE(?, active), sort = COALESCE(?, sort), updated_at = datetime('now') WHERE id = ?`,
+  ).run(name ?? null, feeBps != null ? Math.round(feeBps) : null,
+    active != null ? (active ? 1 : 0) : null, sort ?? null, id);
+  const after = db().prepare('SELECT id, name, type, fee_bps, active FROM payment_methods WHERE id = ?').get(id);
+  audit(req, 'editar', 'payment_method', id, before, after);
+  res.json(after);
+});
 
 // ---------- Caixa ----------
 router.get('/cash/current', requirePermission('finance.cash.view'), (_req, res) => {

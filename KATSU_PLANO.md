@@ -167,7 +167,7 @@ Cada fase abaixo tem: **objetivo · entregáveis · definição de pronto (DoD)*
 
 ### Fase 5 — Apps (segmentos)
 **Objetivo:** primeiro segmento comercializável ponta a ponta.
-**Ordem sugerida:** **Restaurante** primeiro (é o seu domínio real da Taiksu — fichas técnicas, CMV, produção), depois Mercado, Farmácia, Oficina, Lava Jato, Eletrônica.
+**Ordem sugerida:** ~~Restaurante primeiro~~ → **DECIDIDO (2026-07-06): Loja/varejo primeiro** (módulo `store`: PDV genérico para material de construção, mercado, roupas). Restaurante, Farmácia, Oficina, Lava Jato e Eletrônica vêm depois, reaproveitando commercial + finance + store.
 **Entregáveis por App:** PDV, delivery, produção/cozinha, regras específicas do segmento.
 **DoD:** um restaurante consegue operar um dia inteiro só com o Katsu (venda → produção → caixa → relatório).
 

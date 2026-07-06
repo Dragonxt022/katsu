@@ -1,0 +1,53 @@
+import { Router, type Request, type Response } from 'express';
+import { getSqlite } from '../../core/database/connection';
+
+/** Páginas do módulo store (montadas em /app/store, já autenticadas). */
+const router = Router();
+const db = () => getSqlite();
+
+function page(view: string, permission: string) {
+  return (req: Request, res: Response) => {
+    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    res.render(view, { user: req.user });
+  };
+}
+
+function companyName(): string {
+  const row = db().prepare("SELECT value FROM settings WHERE key = 'empresa.nome' AND deleted_at IS NULL").get() as
+    { value: string | null } | undefined;
+  return row?.value || 'Katsu';
+}
+
+router.get('/pdv', page('store-pdv', 'store.sales.create'));
+router.get('/vendas', page('store-sales', 'store.sales.view'));
+router.get('/orcamentos', page('store-quotes', 'store.quotes.view'));
+
+/** Cupom de venda imprimível (layout 80mm). */
+router.get('/vendas/:id/cupom', (req, res) => {
+  if (!req.user!.permissions.has('store.sales.view')) return res.redirect('/');
+  const sale = db().prepare(
+    `SELECT s.*, c.name AS customer, u.username FROM sales s
+     LEFT JOIN customers c ON c.id = s.customer_id
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE s.id = ? AND s.deleted_at IS NULL`,
+  ).get(req.params.id);
+  if (!sale) return res.status(404).send('Venda não encontrada.');
+  const items = db().prepare('SELECT product_name, qty, unit_price_cents, total_cents FROM sale_items WHERE sale_id = ?').all(req.params.id);
+  const payments = db().prepare('SELECT method_name, amount_cents, received_cents, change_cents FROM sale_payments WHERE sale_id = ?').all(req.params.id);
+  res.render('store-receipt', { sale, items, payments, company: companyName() });
+});
+
+/** Orçamento imprimível. */
+router.get('/orcamentos/:id/imprimir', (req, res) => {
+  if (!req.user!.permissions.has('store.quotes.view')) return res.redirect('/');
+  const quote = db().prepare(
+    `SELECT q.*, c.name AS customer FROM quotes q
+     LEFT JOIN customers c ON c.id = q.customer_id
+     WHERE q.id = ? AND q.deleted_at IS NULL`,
+  ).get(req.params.id);
+  if (!quote) return res.status(404).send('Orçamento não encontrado.');
+  const items = db().prepare('SELECT product_name, qty, unit_price_cents, total_cents FROM quote_items WHERE quote_id = ?').all(req.params.id);
+  res.render('store-quote-print', { quote, items, company: companyName() });
+});
+
+export default router;

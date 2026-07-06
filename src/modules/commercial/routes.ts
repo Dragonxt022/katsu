@@ -68,8 +68,21 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
     b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
   );
-  const created = getProduct(Number(info.lastInsertRowid));
-  audit(req, 'criar', 'product', Number(info.lastInsertRowid), null, created);
+  const newId = Number(info.lastInsertRowid);
+  // Estoque inicial opcional já no cadastro (vira movimentação de entrada auditada)
+  if (b.initialStock != null && Number(b.initialStock) > 0) {
+    if (!req.user!.permissions.has('commercial.stock.move')) {
+      res.status(403).json({ error: 'Permissão negada: commercial.stock.move (estoque inicial).' });
+      return;
+    }
+    const move = moveStock(req, newId, 'entrada', Number(b.initialStock), 'estoque inicial');
+    if (!move.ok) {
+      res.status(400).json({ error: move.error });
+      return;
+    }
+  }
+  const created = getProduct(newId);
+  audit(req, 'criar', 'product', newId, null, created);
   res.status(201).json(created);
 });
 

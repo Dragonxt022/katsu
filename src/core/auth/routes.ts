@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { login, logout } from './service';
+import { login, logout, verifyPassword, hashPassword } from './service';
 import { SESSION_COOKIE } from './middleware';
+import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
 
 const router = Router();
@@ -41,6 +42,42 @@ router.post('/logout', (req, res) => {
   if (match) logout(match[1]);
   if (req.user) audit(req, 'logout', 'user', req.user.id);
   res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
+
+/** Troca de senha do PRÓPRIO usuário: exige senha atual e derruba as outras sessões. */
+router.post('/change-password', (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Não autenticado.' });
+    return;
+  }
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: 'Informe a senha atual e a nova senha.' });
+    return;
+  }
+  if (String(newPassword).length < 6) {
+    res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    return;
+  }
+  const db = getSqlite();
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id) as
+    | { password_hash: string }
+    | undefined;
+  if (!row || !verifyPassword(String(currentPassword), row.password_hash)) {
+    audit(req, 'senha_falhou', 'user', req.user.id);
+    res.status(400).json({ error: 'Senha atual incorreta.' });
+    return;
+  }
+  const cookies = req.headers.cookie ?? '';
+  const match = cookies.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+  db.transaction(() => {
+    db.prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(hashPassword(String(newPassword)), req.user!.id);
+    // derruba as outras sessões, mantém a atual
+    if (match) db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.user!.id, match[1]);
+  })();
+  audit(req, 'senha_trocada', 'user', req.user.id);
   res.json({ ok: true });
 });
 

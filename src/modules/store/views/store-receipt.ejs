@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Cupom #<%= sale.id %></title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 12px; color: #000; background: #fff;
+      width: 80mm; margin: 0 auto; padding: 4mm; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    h1 { font-size: 14px; text-transform: uppercase; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 1px 0; vertical-align: top; }
+    .total { font-size: 14px; font-weight: bold; }
+    .muted { font-size: 10px; }
+    @media print { body { width: auto; } .no-print { display: none; } }
+    .no-print { text-align: center; margin-top: 10px; }
+    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <h1><%= company %></h1>
+    <p class="muted">Cupom não fiscal</p>
+  </div>
+  <hr />
+  <p>Venda: #<%= sale.id %><% if (sale.status === 'cancelada') { %> — <strong>CANCELADA</strong><% } %></p>
+  <p>Data: <%= sale.created_at %></p>
+  <% if (sale.customer) { %><p>Cliente: <%= sale.customer %></p><% } %>
+  <p>Vendedor: <%= sale.username ?? '—' %></p>
+  <hr />
+  <table>
+    <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ','); } %>
+    <% items.forEach(function (i) { %>
+      <tr><td colspan="2"><%= i.product_name %></td></tr>
+      <tr>
+        <td class="muted"><%= i.qty %> × <%= brl(i.unit_price_cents) %></td>
+        <td class="right"><%= brl(i.total_cents) %></td>
+      </tr>
+    <% }) %>
+  </table>
+  <hr />
+  <table>
+    <tr><td>Subtotal</td><td class="right"><%= brl(sale.subtotal_cents) %></td></tr>
+    <% if (sale.discount_cents > 0) { %>
+      <tr><td>Desconto</td><td class="right">-<%= brl(sale.discount_cents) %></td></tr>
+    <% } %>
+    <% if (sale.surcharge_cents > 0) { %>
+      <tr><td>Acréscimo</td><td class="right">+<%= brl(sale.surcharge_cents) %></td></tr>
+    <% } %>
+    <tr class="total"><td>TOTAL</td><td class="right"><%= brl(sale.total_cents) %></td></tr>
+    <% if (typeof payments !== 'undefined' && payments.length) { %>
+      <% payments.forEach(function (p) { %>
+        <tr><td><%= p.method_name %></td><td class="right"><%= brl(p.amount_cents) %></td></tr>
+        <% if (p.received_cents != null && p.change_cents > 0) { %>
+          <tr><td class="muted">Recebido / Troco</td><td class="right muted"><%= brl(p.received_cents) %> / <%= brl(p.change_cents) %></td></tr>
+        <% } %>
+      <% }) %>
+    <% } else { %>
+      <tr><td>Pagamento</td><td class="right"><%= { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo' }[sale.payment_method] ?? sale.payment_method %></td></tr>
+      <% if (sale.payment_method === 'dinheiro' && sale.paid_cents != null) { %>
+        <tr><td>Recebido</td><td class="right"><%= brl(sale.paid_cents) %></td></tr>
+        <tr><td>Troco</td><td class="right"><%= brl(sale.change_cents) %></td></tr>
+      <% } %>
+    <% } %>
+  </table>
+  <hr />
+  <p class="center muted">Obrigado pela preferência!</p>
+  <div class="no-print">
+    <button onclick="window.print()">Imprimir</button>
+    <button onclick="window.close()">Fechar</button>
+  </div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>
