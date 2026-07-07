@@ -162,6 +162,25 @@ clientes reais). Tela de licença (`/admin/configuracoes`) ganhou formulário ed
 `company_uuid`/`license_key` + botão "Sincronizar agora" — antes só existia a rota de
 API, sem interface. Assinatura de código (code signing) do `.exe` fica pendente.
 
+**Segundo bug real, achado só no teste em máquina de verdade** (o sandbox de
+desenvolvimento não consegue abrir janela do Electron para testar isso): o app
+instalava e o processo aparecia no Gerenciador de Tarefas, mas nenhuma janela abria.
+Causa: `seedPackagedBackupDir()` (`src/electron/main.ts`) inseria na tabela `settings`
+sem a coluna `uuid` (`NOT NULL UNIQUE`, sem default) — o `INSERT` lançava
+`NOT NULL constraint failed: settings.uuid`, a promise de `boot()` rejeitava sem
+nenhum `.catch()`, e a `BrowserWindow` nunca chegava a ser criada. Corrigido (gera
+`uuid` como todo outro INSERT em `settings` já faz, ex.: `src/core/config/routes.ts`) e
+**adicionado tratamento de erro fatal no boot**: qualquer falha agora grava
+`boot-error.log` em `app.getPath('userData')` e mostra uma caixa de diálogo antes de
+fechar — antes, uma falha assim ficava completamente muda (processo vivo, sem janela,
+sem log nenhum).
+
+**Nota operacional para quem for desenvolver depois de gerar um instalador:**
+`npm run rebuild:electron` (e o próprio `electron-builder` durante `dist:win`)
+recompilam `better-sqlite3` contra o ABI do Electron — isso pode deixar `npm run dev`/
+`npm run test:faseN` (que usam o Node do sistema via `tsx`) quebrados com erro de
+`NODE_MODULE_VERSION` até rodar `npm rebuild better-sqlite3` de volta.
+
 ### Fase 1 — Core: segurança
 **Objetivo:** ninguém entra sem autenticar; nada acontece sem permissão; tudo fica registrado.
 **Entregáveis:**

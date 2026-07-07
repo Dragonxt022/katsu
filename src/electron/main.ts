@@ -1,4 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
@@ -22,8 +24,27 @@ function seedPackagedBackupDir(): void {
   if (existing) return;
   const dir = path.join(app.getPath('userData'), 'storage', 'backups');
   db.prepare(
-    `INSERT INTO settings (key, value, comment) VALUES ('backup.dir', ?, 'Diretório de destino dos backups locais.')`,
-  ).run(dir);
+    `INSERT INTO settings (key, value, uuid, comment) VALUES ('backup.dir', ?, ?, 'Diretório de destino dos backups locais.')`,
+  ).run(dir, randomUUID());
+}
+
+/**
+ * Sem isso, uma falha em `boot()` (ex.: erro de SQL) rejeita a promise silenciosamente —
+ * o processo continua rodando (aparece no gerenciador de tarefas) mas nenhuma janela
+ * chega a abrir, e não há console visível num app empacotado para ver o erro. Grava o
+ * erro num arquivo em userData e mostra uma caixa de diálogo antes de encerrar.
+ */
+function reportFatalBootError(err: unknown): void {
+  const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  try {
+    const logPath = path.join(app.getPath('userData'), 'boot-error.log');
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.writeFileSync(logPath, `${new Date().toISOString()}\n${message}\n`);
+  } catch {
+    // se nem isso funcionar, ao menos tenta mostrar o diálogo abaixo.
+  }
+  dialog.showErrorBox('Katsu — falha ao iniciar', message);
+  app.quit();
 }
 
 async function boot() {
@@ -56,7 +77,7 @@ async function boot() {
   void checkModuleUpdates();
 }
 
-app.whenReady().then(boot);
+app.whenReady().then(boot).catch(reportFatalBootError);
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });

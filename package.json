@@ -9,7 +9,7 @@
     "dev:electron": "electron .",
     "build": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && npm run rebuild:electron && electron-builder --win",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\"",
     "db:migrate": "tsx src/core/database/cli.ts up",

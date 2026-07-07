@@ -5,4 +5,4 @@
  * `KATSU_SYNC_SERVER_URL` (variável de ambiente) sempre tem prioridade sobre isto,
  * usado pelos testes/dev para apontar para o cloud/ local.
  */
-export const PRODUCTION_CLOUD_URL = '';
+export const PRODUCTION_CLOUD_URL = 'http://localhost:4000';
