@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { Express, Router } from 'express';
 import { getSqlite } from '../database/connection';
 import { registerSyncTables } from '../sync/registry';
+import { isModuleEntitled } from '../license/service';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
@@ -52,20 +53,22 @@ async function importRouter(dir: string, spec: string | Router): Promise<Router 
 }
 
 /** Upsert do módulo na tabela `modules` (registro de instalação). */
-function registerInDb(m: ModuleManifest): void {
+function registerInDb(m: ModuleManifest, enabled: boolean): void {
   getSqlite()
     .prepare(
-      `INSERT INTO modules (module_id, name, version, uuid, comment)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO modules (module_id, name, version, enabled, uuid, comment)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(module_id) DO UPDATE SET
          name = excluded.name,
          version = excluded.version,
+         enabled = excluded.enabled,
          updated_at = datetime('now')`,
     )
     .run(
       m.id,
       m.name,
       m.version,
+      enabled ? 1 : 0,
       randomUUID(),
       'Registro dos módulos (Apps) instalados: id, nome, versão e estado. O Core lê esta tabela no boot para saber quais Apps carregar.',
     );
@@ -121,6 +124,15 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
       continue;
     }
 
+    // Fase 6b: plano da empresa pode não incluir este módulo. Migrations já rodaram
+    // (dado não é apagado por perda de entitlement); só rotas/menu/serviços ficam de fora.
+    // Aplica no boot a partir do cache local — reavaliar exige reiniciar o Katsu.
+    if (!isModuleEntitled(manifest.id)) {
+      console.warn(`[modules] "${manifest.id}" não incluído no plano contratado — desabilitado.`);
+      registerInDb(manifest, false);
+      continue;
+    }
+
     // setup: registra serviços do módulo no Core ANTES das rotas (outros módulos dependem)
     if (manifest.setup) {
       const basePath = path.join(dir, manifest.setup);
@@ -139,7 +151,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
 
     const viewsDir = manifest.views ? path.join(dir, manifest.views) : undefined;
 
-    registerInDb(manifest);
+    registerInDb(manifest, true);
     registerPermissions(manifest);
     registerSyncTables(manifest.id, manifest.syncTables);
     loaded.push({ manifest, dir, router, pagesRouter, viewsDir });

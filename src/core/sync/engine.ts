@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
-import { machineId } from '../license/service';
+import { machineId, refreshLicenseFromCloud } from '../license/service';
 import { getSyncTables, getRecomputeHook } from './registry';
 import {
   tableColumns,
@@ -325,6 +325,10 @@ async function pullAll(req: Request): Promise<number> {
 }
 
 export async function runSync(req: Request): Promise<{ pushed: number; pulled: number }> {
+  // Reconectar também confirma entitlement/validade (Fase 6b) — best-effort, não
+  // interrompe o resto do sync se o cloud/ estiver fora do ar. Só reflete nas rotas
+  // montadas no próximo boot (o loader lê o cache local, não a rede).
+  await refreshLicenseFromCloud();
   const pushed = await pushAll();
   const pulled = await pullAll(req);
   return { pushed, pulled };

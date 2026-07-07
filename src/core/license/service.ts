@@ -40,6 +40,7 @@ function getRow() {
         company_uuid: string | null;
         license_key: string | null;
         plan: string | null;
+        modules_json: string | null;
         valid_until: string | null;
         last_validated_at: string | null;
         offline_grace_days: number;
@@ -70,6 +71,53 @@ export function setLicense(companyUuid: string, licenseKey: string, plan?: strin
 export function getLicenseCredentials(): { companyUuid: string | null; licenseKey: string | null } {
   const row = getRow();
   return { companyUuid: row?.company_uuid ?? null, licenseKey: row?.license_key ?? null };
+}
+
+/**
+ * Módulos habilitados pelo plano contratado (Fase 6b). `null` = sem restrição
+ * (fail-open): modo desenvolvimento (sem licença configurada) ou licença configurada
+ * mas ainda sem nenhuma validação remota bem-sucedida (evita travar o primeiro boot).
+ */
+export function getEntitledModules(): string[] | null {
+  const row = getRow();
+  if (!row?.license_key || !row.company_uuid) return null;
+  if (!row.modules_json) return null;
+  return JSON.parse(row.modules_json) as string[];
+}
+
+export function isModuleEntitled(moduleId: string): boolean {
+  const modules = getEntitledModules();
+  return modules === null || modules.includes(moduleId);
+}
+
+/**
+ * Validação remota (Fase 6b): confirma plano/módulos/validade contra o cloud/ e
+ * atualiza o cache local. Nunca lança — falha de rede mantém o último estado
+ * conhecido (mesma tolerância offline de `validateLicense`); só reflete nas rotas
+ * montadas no PRÓXIMO boot (o loader lê o cache local, não chama a rede).
+ */
+export async function refreshLicenseFromCloud(): Promise<void> {
+  const { companyUuid, licenseKey } = getLicenseCredentials();
+  const url = process.env.KATSU_SYNC_SERVER_URL;
+  if (!companyUuid || !licenseKey || !url) return;
+  try {
+    const res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
+      headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey },
+    });
+    if (!res.ok) return;
+    const body = (await res.json()) as { plan: string | null; modules: string[] | null; validUntil: string | null };
+    ensureLicenseRow();
+    getSqlite()
+      .prepare(
+        `UPDATE license SET plan = ?, modules_json = ?, valid_until = ?,
+         last_validated_at = datetime('now'), updated_at = datetime('now')`,
+      )
+      // `modules: null` do cloud = sem restrição configurada ainda (fail-open) — grava
+      // NULL local, não '[]' (que bloquearia tudo em isModuleEntitled).
+      .run(body.plan, body.modules != null ? JSON.stringify(body.modules) : null, body.validUntil);
+  } catch {
+    // offline ou cloud fora do ar: mantém o cache local, não interrompe o sync.
+  }
 }
 
 /** Validação local no boot. Nunca trava a operação: apenas informa o status. */

@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
-import { validateLicense, setLicense } from './service';
+import { validateLicense, setLicense, getEntitledModules } from './service';
 
 const router = Router();
 
 router.get('/', requirePermission('license.view'), (_req, res) => {
-  res.json(validateLicense());
+  res.json({ ...validateLicense(), modules: getEntitledModules() });
 });
 
 router.put('/', requirePermission('license.edit'), (req, res) => {

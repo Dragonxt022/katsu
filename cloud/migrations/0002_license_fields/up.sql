@@ -1,0 +1,3 @@
+ALTER TABLE companies ADD COLUMN plan VARCHAR(50) NULL;
+ALTER TABLE companies ADD COLUMN modules JSON NULL;
+ALTER TABLE companies ADD COLUMN valid_until DATETIME(3) NULL;

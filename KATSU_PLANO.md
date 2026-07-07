@@ -183,7 +183,8 @@ Dividida em sub-fases sequenciais e testáveis (mesmo padrão da Fase 5):
 - **6a — Motor de sincronização** ✅ implementado e testado (`npm run test:fase6a`).
   Servidor de nuvem em `cloud/` (Node + Express + **MySQL**, ver §11), rodando local via
   Docker para dev/teste. Ver §6 para o contrato e os desvios conscientes adotados.
-- 6b — Licenciamento remoto real + módulos habilitados por plano (pendente).
+- **6b — Licenciamento remoto + módulos habilitados por plano** ✅ implementado e
+  testado (`npm run test:fase6b`). Ver §7 para o desenho.
 - 6c — Backup em nuvem, upload do `.gz` gerado pela Fase 1 (pendente).
 - 6d — Painel administrativo VPS (pendente).
 
@@ -263,6 +264,34 @@ Machine ID  +  Empresa ID (UUID)  +  License Key
 ```
 
 O servidor mantém, por empresa: licença → módulos habilitados → plano → validade → última sincronização. O Core valida a licença no boot (com tolerância offline configurável para não travar operação sem internet).
+
+### Fase 6b — o que foi implementado
+
+- **`cloud/` (`companies.plan`, `companies.modules` JSON, `companies.valid_until`)**:
+  provisionamento continua manual/CLI (`cloud/src/provision-company.ts --plan <nome>
+  --modules <a,b,c>`) — painel de verdade só na 6d. Nova rota
+  `GET /api/license/validate` (mesma autenticação `X-Katsu-Company`/
+  `X-Katsu-License-Key` do motor de sync).
+- **`companies.modules = NULL`** (nunca configurado) é **fail-open** — trata como "sem
+  restrição", igual ao cliente local antes da primeira validação remota. **Diferente**
+  de `modules = []` (configurado explicitamente como "nenhum módulo"), que bloquearia
+  tudo. Bug corrigido durante o desenvolvimento: o endpoint inicialmente devolvia `[]`
+  para "nunca configurado" — todo módulo teria sumido no restart de qualquer empresa
+  provisionada sem `--modules`. Coberto por teste de regressão em `fase6b.ts`.
+- **Cliente** (`src/core/license/service.ts`): `getEntitledModules()`/
+  `isModuleEntitled(moduleId)` leem o cache local (`license.modules_json`);
+  `refreshLicenseFromCloud()` busca o estado remoto e atualiza esse cache — chamada no
+  início de `runSync()` (`src/core/sync/engine.ts`), best-effort (falha de rede não
+  interrompe o resto do sync).
+- **`src/core/modules/loader.ts`** só monta rotas/páginas/menu/permissões/syncTables de
+  um módulo se `isModuleEntitled(manifest.id)`; senão grava `modules.enabled = 0` (coluna
+  que já existia desde a Fase 0 mas nunca tinha sido usada) e pula o módulo. Migrations
+  de todo módulo em disco continuam rodando incondicionalmente — perder entitlement não
+  apaga dado, só tira da UI/API até reabilitar.
+- **Decisão confirmada com o usuário: entitlement só vale após reiniciar o Katsu** — o
+  loader decide no boot a partir do cache local; não há desmontagem dinâmica de rotas
+  Express em tempo real. Gating ao vivo (sem reiniciar) fica fora de escopo por ora.
+- `GET /api/license` agora também devolve `modules` (lista atual ou `null`).
 
 ---
 
