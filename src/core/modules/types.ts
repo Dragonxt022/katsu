@@ -1,4 +1,5 @@
 import type { Router } from 'express';
+import type { SyncTableSpec } from '../sync/types';
 
 /** Item de menu injetado na UI pelo módulo (renderizado conforme permissão). */
 export interface ModuleMenuItem {
@@ -28,6 +29,8 @@ export interface ModuleManifest {
   /** Arquivo executado no boot (export default function): registra serviços no Core. */
   setup?: string;
   menu?: ModuleMenuItem[];
+  /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KATSU_PLANO.md §6). */
+  syncTables?: SyncTableSpec[];
 }
 
 export interface LoadedModule {

@@ -1,5 +1,6 @@
 import { registerService } from '../../core/services/registry';
-import { moveStock, moveStockRaw, listMovements } from './stock';
+import { registerRecomputeHook } from '../../core/sync/registry';
+import { moveStock, moveStockRaw, listMovements, recomputeStockForProducts } from './stock';
 
 /** Serviços que o módulo commercial oferece aos outros Apps (via Core). */
 export interface CommercialStockService {
@@ -11,4 +12,5 @@ export interface CommercialStockService {
 
 export default function setup(): void {
   registerService('commercial.stock', { move: moveStock, moveRaw: moveStockRaw, listMovements } satisfies CommercialStockService);
+  registerRecomputeHook('stock_movements', recomputeStockForProducts);
 }

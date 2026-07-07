@@ -61,6 +61,12 @@ export function setLicense(companyUuid: string, licenseKey: string, plan?: strin
     .run(companyUuid, licenseKey, plan ?? null, validUntil ?? null);
 }
 
+/** Credenciais usadas pelo motor de sync (Fase 6a) para autenticar no cloud/. */
+export function getLicenseCredentials(): { companyUuid: string | null; licenseKey: string | null } {
+  const row = getRow();
+  return { companyUuid: row?.company_uuid ?? null, licenseKey: row?.license_key ?? null };
+}
+
 /** Validação local no boot. Nunca trava a operação: apenas informa o status. */
 export function validateLicense(): LicenseInfo {
   ensureLicenseRow();

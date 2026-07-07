@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import type { Express, Router } from 'express';
 import { getSqlite } from '../database/connection';
+import { registerSyncTables } from '../sync/registry';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
@@ -140,6 +141,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
 
     registerInDb(manifest);
     registerPermissions(manifest);
+    registerSyncTables(manifest.id, manifest.syncTables);
     loaded.push({ manifest, dir, router, pagesRouter, viewsDir });
     console.log(`[modules] carregado: ${manifest.id}@${manifest.version}`);
   }

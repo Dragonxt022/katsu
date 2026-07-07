@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS sync_records;
+DROP TABLE IF EXISTS companies;

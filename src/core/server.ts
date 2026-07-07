@@ -10,6 +10,7 @@ import auditRoutes from './audit/routes';
 import settingsRoutes from './config/routes';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
+import syncRoutes from './sync/routes';
 import { startBackupScheduler } from './backup/service';
 import { validateLicense } from './license/service';
 
@@ -55,6 +56,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/settings', requireAuth, settingsRoutes);
   app.use('/api/backup', requireAuth, backupRoutes);
   app.use('/api/license', requireAuth, licenseRoutes);
+  app.use('/api/sync', requireAuth, syncRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));

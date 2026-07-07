@@ -23,6 +23,10 @@
     "test:fase5b": "tsx src/tests/fase5b.ts",
     "test:fase5c": "tsx src/tests/fase5c.ts",
     "test:fase5d": "tsx src/tests/fase5d.ts",
+    "test:fase6a": "tsx src/tests/fase6a.ts",
+    "cloud:install": "npm --prefix cloud install",
+    "cloud:migrate": "npm --prefix cloud run migrate",
+    "cloud:dev": "npm --prefix cloud run dev",
     "postinstall": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
   },
   "dependencies": {

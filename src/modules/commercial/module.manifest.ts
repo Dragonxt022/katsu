@@ -37,6 +37,26 @@ const manifest: ModuleManifest = {
     { label: 'Produtos', href: '/app/commercial/produtos', permission: 'commercial.products.view', description: 'Catálogo, preços e estoque.', icon: 'package' },
     { label: 'Compras', href: '/app/commercial/compras', permission: 'commercial.purchases.view', description: 'Recebimento de mercadoria e custos.', icon: 'bag' },
   ],
+  // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
+  // stock_qty é derivado do ledger stock_movements — nunca viaja na rede (ver stock.ts/setup.ts).
+  // Colunas que referenciam `users` (user_id) ficam fora do payload: usuários não sincronizam
+  // nesta sub-fase (KATSU_PLANO.md, Fase 6a "fora de escopo").
+  syncTables: [
+    { table: 'categories', foreignKeys: { parent_id: 'categories' } },
+    { table: 'products', foreignKeys: { category_id: 'categories' }, excludeColumns: ['stock_qty'] },
+    { table: 'customers' },
+    { table: 'suppliers' },
+    {
+      table: 'purchases',
+      foreignKeys: { supplier_id: 'suppliers' },
+      children: [{ table: 'purchase_items', parentColumn: 'purchase_id', foreignKeys: { product_id: 'products' } }],
+    },
+    {
+      table: 'stock_movements',
+      excludeColumns: ['balance_after', 'ref_id', 'user_id'],
+      ledgerFor: { parentTable: 'products', parentColumn: 'product_id' },
+    },
+  ],
 };
 
 export default manifest;

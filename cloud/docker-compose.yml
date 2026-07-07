@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: katsu
+      MYSQL_DATABASE: katsu_cloud
+    ports:
+      - '3307:3306'
+    volumes:
+      - katsu_cloud_mysql:/var/lib/mysql
+
+volumes:
+  katsu_cloud_mysql:

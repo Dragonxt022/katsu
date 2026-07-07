@@ -24,6 +24,30 @@ const manifest: ModuleManifest = {
     { label: 'Vendas', href: '/app/store/vendas', permission: 'store.sales.view', description: 'Histórico e relatório do dia.', icon: 'receipt' },
     { label: 'Orçamentos', href: '/app/store/orcamentos', permission: 'store.quotes.view', description: 'Cotações com validade; converta em venda.', icon: 'clipboard' },
   ],
+  // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
+  // user_id/canceled_by referenciam `users`, que não sincroniza nesta sub-fase.
+  syncTables: [
+    {
+      table: 'sales',
+      foreignKeys: { customer_id: 'customers', cash_register_id: 'cash_registers', receivable_id: 'receivables' },
+      excludeColumns: ['user_id', 'canceled_by'],
+      children: [
+        { table: 'sale_items', parentColumn: 'sale_id', foreignKeys: { product_id: 'products' } },
+        {
+          table: 'sale_payments',
+          parentColumn: 'sale_id',
+          foreignKeys: { receivable_id: 'receivables' },
+          excludeColumns: ['payment_method_id'],
+        },
+      ],
+    },
+    {
+      table: 'quotes',
+      foreignKeys: { customer_id: 'customers', sale_id: 'sales' },
+      excludeColumns: ['user_id'],
+      children: [{ table: 'quote_items', parentColumn: 'quote_id', foreignKeys: { product_id: 'products' } }],
+    },
+  ],
 };
 
 export default manifest;

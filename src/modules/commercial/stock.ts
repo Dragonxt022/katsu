@@ -84,6 +84,30 @@ export function moveStock(
   return result;
 }
 
+/**
+ * Recomputa stock_qty de um produto a partir do replay cronológico do ledger
+ * (stock_movements). Usado pelo motor de sync (Fase 6a): stock_qty nunca viaja na
+ * rede — cada máquina reconstrói o mesmo saldo a partir do conjunto de movimentos
+ * mesclado, independente de quem sincronizou primeiro (evita perda de baixas
+ * concorrentes por sobrescrita de linha inteira).
+ */
+export function recomputeStockForProducts(productIds: number[]): void {
+  const db = getSqlite();
+  const updateBalance = db.prepare('UPDATE stock_movements SET balance_after = ? WHERE id = ?');
+  const updateProduct = db.prepare('UPDATE products SET stock_qty = ? WHERE id = ?');
+  for (const productId of new Set(productIds)) {
+    const movements = db
+      .prepare('SELECT id, type, qty FROM stock_movements WHERE product_id = ? ORDER BY created_at, uuid')
+      .all(productId) as { id: number; type: MovementType; qty: number }[];
+    let balance = 0;
+    for (const m of movements) {
+      balance = m.type === 'entrada' ? balance + m.qty : m.type === 'saida' ? balance - m.qty : m.qty;
+      updateBalance.run(balance, m.id);
+    }
+    updateProduct.run(balance, productId);
+  }
+}
+
 export function listMovements(productId?: number, limit = 100) {
   const db = getSqlite();
   const base = `SELECT m.id, m.product_id, p.name AS product_name, m.type, m.qty, m.balance_after,

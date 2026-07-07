@@ -18,6 +18,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'backup.restore', description: 'Restaurar backup' },
   { key: 'license.view', description: 'Visualizar licença' },
   { key: 'license.edit', description: 'Alterar licença' },
+  { key: 'sync.run', description: 'Executar sincronização manual com a nuvem' },
 ];
 
 const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }[] = [
@@ -25,7 +26,7 @@ const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }
   {
     slug: 'gerente',
     name: 'Gerente',
-    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view', 'backup.view', 'backup.run'],
+    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view', 'backup.view', 'backup.run', 'sync.run'],
   },
   { slug: 'operador', name: 'Operador', permissions: [] },
   { slug: 'caixa', name: 'Caixa', permissions: [] },

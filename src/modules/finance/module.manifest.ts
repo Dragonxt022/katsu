@@ -36,6 +36,22 @@ const manifest: ModuleManifest = {
     { label: 'Fluxo', href: '/app/finance/fluxo', permission: 'finance.reports.view', description: 'Fluxo de caixa por dia.', icon: 'chart' },
     { label: 'Pagamentos', href: '/app/finance/formas-pagamento', permission: 'finance.paymethods.view', description: 'Formas de pagamento e taxas das maquininhas.', icon: 'credit-card' },
   ],
+  // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
+  // opened_by/closed_by/edited_by referenciam `users`, que não sincroniza nesta sub-fase.
+  // payment_methods NÃO sincroniza: é configuração por máquina/terminal (cada maquininha
+  // pode ter sua própria taxa), seeded independentemente em cada instalação — por isso
+  // sale_payments.payment_method_id fica de fora do payload (method_name/method_type/fee_bps
+  // já são congelados na própria linha, que é o que realmente importa para o histórico).
+  syncTables: [
+    { table: 'cash_registers', excludeColumns: ['opened_by', 'closed_by', 'edited_by'] },
+    { table: 'payables', foreignKeys: { supplier_id: 'suppliers' } },
+    { table: 'receivables', foreignKeys: { customer_id: 'customers' } },
+    {
+      table: 'cash_movements',
+      excludeColumns: ['ref_id', 'user_id'],
+      ledgerFor: { parentTable: 'cash_registers', parentColumn: 'register_id' },
+    },
+  ],
 };
 
 export default manifest;
