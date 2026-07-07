@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import type { Express, Router } from 'express';
 import { getSqlite } from '../database/connection';
@@ -9,7 +8,9 @@ import { isModuleEntitled } from '../license/service';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
-const MODULES_DIR = path.resolve(process.cwd(), 'src', 'modules');
+// Relativo a __dirname (não process.cwd()): em dev resolve para src/modules; no app
+// empacotado resolve para dist/modules (mesma estrutura, ver scripts/copy-build-assets.js).
+const MODULES_DIR = path.resolve(__dirname, '..', '..', 'modules');
 
 function validateManifest(m: Partial<ModuleManifest>, dir: string): asserts m is ModuleManifest {
   for (const field of ['id', 'name', 'version', 'requiresCore'] as const) {
@@ -38,9 +39,15 @@ function findManifest(dir: string): string | null {
   return null;
 }
 
-/** import() dinâmico: no Windows exige URL file:// (não aceita C:\...). */
+/**
+ * Carrega manifesto/rotas/setup de um módulo por caminho absoluto.
+ * `require()` direto (não `import()`) — o `tsc` (module: commonjs) rebaixa `import()`
+ * dinâmico para `require(url.pathToFileURL(p).href)`, e `require()` do Node não aceita
+ * URL `file://` como especificador (só caminhos crus) — isso só quebra rodando o build
+ * compilado via `node` puro (nunca em dev via `tsx`, que transpila diferente).
+ */
 async function importFile(p: string) {
-  return import(pathToFileURL(p).href);
+  return require(p);
 }
 
 async function importRouter(dir: string, spec: string | Router): Promise<Router | undefined> {

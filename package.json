@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "description": "Katsu — plataforma comercial modular desktop-first",
   "private": true,
-  "main": "dist/electron/main.js",
+  "main": "dist/electron/bootstrap.js",
   "scripts": {
     "dev": "tsx src/dev.ts",
     "dev:electron": "electron .",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "dist:win": "npm run build && electron-builder --win",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\"",
     "db:migrate": "tsx src/core/database/cli.ts up",
@@ -41,16 +43,40 @@
     "express": "^5.1.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.0",
     "drizzle-kit": "^0.31.0",
     "electron": "^36.0.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.0",
     "prettier": "^3.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.32.0"
+  },
+  "build": {
+    "appId": "com.katsu.desktop",
+    "productName": "Katsu",
+    "asar": false,
+    "files": [
+      "dist/**/*",
+      "drizzle/migrations/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build"
+    }
   }
 }

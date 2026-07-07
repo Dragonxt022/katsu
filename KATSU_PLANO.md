@@ -142,6 +142,26 @@ Cada fase abaixo tem: **objetivo · entregáveis · definição de pronto (DoD)*
 - Padrões de código: ESLint, Prettier, estrutura de commits, scripts npm.
 **DoD:** app abre, carrega um módulo "hello" fictício via manifesto, migration roda e reverte.
 
+**Empacotamento (adicionado depois, pré-requisito para instalar em máquina de cliente):**
+`npm run dist:win` gera um instalador NSIS (`dist-installer/Katsu Setup *.exe`) via
+`electron-builder` (`asar: false` — evita complexidade de módulo nativo dentro de asar;
+`better-sqlite3` é recompilado para o ABI do Electron automaticamente no build, ou via
+`npm run rebuild:electron` para testar `electron .` localmente). Corrigido também um bug
+real descoberto ao testar o build compilado pela primeira vez: `src/core/modules/loader.ts`
+usava `import(pathToFileURL(p).href)` para carregar manifestos — o `tsc` (module:
+commonjs) rebaixa isso para `require(url)`, que não aceita URL `file://` como
+especificador; só quebrava rodando `node` puro sobre o build (nunca em dev via `tsx`).
+Corrigido para `require(p)` direto. Os caminhos de `migrator.ts`/`loader.ts`/`server.ts`
+que antes dependiam de `process.cwd() + 'src/...'` agora são relativos a `__dirname`
+(funcionam tanto em dev quanto no app empacotado, cujo `dist/` espelha a estrutura de
+`src/` via `scripts/copy-build-assets.js`). Banco de dados e backups locais vão para
+`app.getPath('userData')` quando empacotado (`src/electron/bootstrap.ts`/`main.ts`), não
+para a pasta de instalação. Ponto de configuração da URL de produção do `cloud/`:
+`src/core/config/cloud.ts` (precisa ser preenchido antes de gerar o instalador para
+clientes reais). Tela de licença (`/admin/configuracoes`) ganhou formulário editável de
+`company_uuid`/`license_key` + botão "Sincronizar agora" — antes só existia a rota de
+API, sem interface. Assinatura de código (code signing) do `.exe` fica pendente.
+
 ### Fase 1 — Core: segurança
 **Objetivo:** ninguém entra sem autenticar; nada acontece sem permissão; tudo fica registrado.
 **Entregáveis:**

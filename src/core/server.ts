@@ -30,14 +30,16 @@ function page(view: string, permission?: string) {
 /** Cria a API local (Express 5) + views EJS e carrega os módulos via manifesto. */
 export async function createServer(): Promise<KatsuServer> {
   const app = express();
-  const coreViews = path.resolve(process.cwd(), 'src', 'views');
+  // Relativo a __dirname (não process.cwd()): dev resolve para src/views|public; app
+  // empacotado resolve para dist/views|public (ver scripts/copy-build-assets.js).
+  const coreViews = path.resolve(__dirname, '..', 'views');
 
   app.set('view engine', 'ejs');
   app.set('views', coreViews);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(express.static(path.resolve(process.cwd(), 'src', 'public')));
+  app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use(attachUser);
 
   // Rotas públicas

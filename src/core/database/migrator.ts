@@ -10,9 +10,13 @@ import { getSqlite } from './connection';
  * Cada migration é uma pasta com up.sql e down.sql, ordenada globalmente pelo nome.
  * Regra do projeto: toda tabela criada deve ter uma coluna `comment`
  * (TEXT NOT NULL) com DEFAULT descrevendo o objetivo da tabela.
+ *
+ * Caminhos relativos a __dirname (não a process.cwd()): funcionam tanto em dev
+ * (tsx rodando de src/core/database/) quanto no app empacotado (rodando de
+ * dist/core/database/ — dist/ espelha a mesma estrutura, ver scripts/copy-build-assets.js).
  */
-const CORE_MIGRATIONS = path.resolve(process.cwd(), 'drizzle', 'migrations');
-const MODULES_DIR = path.resolve(process.cwd(), 'src', 'modules');
+const CORE_MIGRATIONS = path.resolve(__dirname, '..', '..', '..', 'drizzle', 'migrations');
+const MODULES_DIR = path.resolve(__dirname, '..', '..', 'modules');
 
 function ensureMetaTable(): void {
   getSqlite().exec(`
