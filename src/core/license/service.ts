@@ -21,8 +21,13 @@ export interface LicenseInfo {
   message: string;
 }
 
-/** ID estável desta máquina (não é segredo; identifica a instalação). */
+/**
+ * ID estável desta máquina (não é segredo; identifica a instalação).
+ * `KATSU_MACHINE_ID` permite forçar um valor (testes com múltiplas "máquinas" no mesmo
+ * hardware; VMs clonadas de um template que precisem de identidade distinta).
+ */
 export function machineId(): string {
+  if (process.env.KATSU_MACHINE_ID) return process.env.KATSU_MACHINE_ID;
   const raw = [os.hostname(), os.platform(), os.arch(), os.cpus()[0]?.model ?? ''].join('|');
   return createHash('sha256').update(raw).digest('hex').slice(0, 32);
 }

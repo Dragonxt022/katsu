@@ -52,7 +52,7 @@ A seta indica "pode importar de". **Nunca o contrário.** Core não conhece Apps
 | Banco local | **better-sqlite3** | síncrono, muito mais rápido que `sqlite3` |
 | ORM / query builder | **Drizzle ORM** | migrations versionadas, tipagem forte |
 | Padrão | **MVC + Services/Repositories** | camadas explícitas |
-| Nuvem (VPS) | Node + Express + Postgres | painel admin, licenças, sync |
+| Nuvem (VPS) | Node + Express + MySQL | painel admin, licenças, sync — código em `cloud/` |
 
 ---
 
@@ -103,6 +103,8 @@ katsu/
 │
 ├── storage/  temp/  uploads/  database/
 ├── drizzle/              # migrations geradas
+├── cloud/                # servidor de nuvem (Fase 6a): Node + Express + MySQL,
+│                          # deploy independente do Electron app (package.json próprio)
 ├── package.json
 └── KATSU_PLANO.md
 ```
@@ -176,6 +178,15 @@ Cada fase abaixo tem: **objetivo · entregáveis · definição de pronto (DoD)*
 **Entregáveis:** motor de sincronização por UUID com resolução de conflitos, assinaturas, backup em nuvem, painel administrativo (VPS).
 **DoD:** duas máquinas offline editam, reconectam e convergem sem perda nem duplicação.
 
+Dividida em sub-fases sequenciais e testáveis (mesmo padrão da Fase 5):
+
+- **6a — Motor de sincronização** ✅ implementado e testado (`npm run test:fase6a`).
+  Servidor de nuvem em `cloud/` (Node + Express + **MySQL**, ver §11), rodando local via
+  Docker para dev/teste. Ver §6 para o contrato e os desvios conscientes adotados.
+- 6b — Licenciamento remoto real + módulos habilitados por plano (pendente).
+- 6c — Backup em nuvem, upload do `.gz` gerado pela Fase 1 (pendente).
+- 6d — Painel administrativo VPS (pendente).
+
 ### Fase 7 — IA e ecossistema
 **Objetivo:** plataforma aberta.
 **Entregáveis:** assistente com IA, automações, API pública, marketplace de módulos, plugins de terceiros.
@@ -188,12 +199,58 @@ Cada fase abaixo tem: **objetivo · entregáveis · definição de pronto (DoD)*
 - Toda entidade sincronizável tem `id` (SQLite, local) **e** `uuid` (universal).
 - SQLite usa `id` internamente; a sincronização usa **somente `uuid`**.
 - Campos de controle obrigatórios: `uuid`, `updated_at`, `deleted_at` (soft delete), `synced_at`, `origin_machine`.
-- Estratégia de conflito padrão: **last-write-wins por campo** com log de auditoria do conflito; entidades críticas (financeiro) podem exigir merge manual.
+- ~~Estratégia de conflito: last-write-wins por campo~~ → **DECIDIDO (2026-07-07, Fase 6a):
+  last-write-wins por LINHA INTEIRA** (compara `updated_at` da linha, não campo a campo).
+  Field-level LWW exigiria um log de mudanças por coluna instrumentado em todo ponto de
+  escrita de todos os módulos — desproporcional ao risco real. Merge manual assistido para
+  financeiro segue **fora de escopo** (não implementado).
 
 ```
 Internet volta → enviar alterações → servidor → receber alterações
               → resolver conflitos (por UUID) → registrar → fim
 ```
+
+### Fase 6a — o que foi implementado
+
+- **Módulos declaram `syncTables` no manifesto** (`src/core/modules/types.ts`), agregado
+  pelo loader (`src/core/sync/registry.ts`) — o Core nunca conhece tabelas de um App
+  específico, mesmo padrão de `permissions`/`menu`.
+- **Motor cliente** (`src/core/sync/{introspect,engine,client,routes}.ts`): introspecção
+  genérica via `PRAGMA table_info`, tradução de FK id↔uuid, tabelas filhas (line items)
+  embutidas no payload do agregado pai, ledgers append-only (`stock_movements`,
+  `cash_movements`) com hook de recomputo local.
+- **Achado crítico:** `stock_qty`/`balance_after` são derivados do ledger — nunca viajam
+  na rede (`excludeColumns`). Cada máquina reconstrói o saldo a partir do ledger mesclado
+  (`recomputeStockForProducts` em `src/modules/commercial/stock.ts`), evitando perda de
+  baixas concorrentes por sobrescrita de linha inteira.
+- **`payment_methods` não sincroniza** — é configuração por máquina/terminal (cada
+  maquininha pode ter taxa própria), seedada independentemente em cada instalação;
+  `sale_payments.payment_method_id` fica fora do payload (nome/tipo/taxa já são
+  congelados na própria linha).
+- **`users`/`roles`/`permissions`/`modules`/`settings` não sincronizam** nesta sub-fase
+  (fora de escopo — levanta questões de segurança que se sobrepõem à 6b).
+  Colunas que referenciam `users` (ex.: `user_id`, `opened_by`) ficam fora do payload.
+- **`origin_machine` é gravado no momento da edição local**, não só durante o sync — hoje
+  isso é feito no CRUD genérico (`src/modules/commercial/crud.ts`, usado por
+  clientes/fornecedores). **Pendência conhecida:** os demais pontos de escrita
+  (produtos, compras, caixa, vendas, orçamentos, contas) ainda não fazem esse stamp;
+  funcionam corretamente para dados/estoque (LWW por linha + replay de ledger), mas o
+  log de auditoria de conflito (`sync.conflict`) só é confiável hoje para
+  clientes/fornecedores. Estender o mesmo stamp aos demais módulos antes de confiar no
+  audit trail de conflito nessas entidades.
+- **Servidor de nuvem** (`cloud/`, Node + Express + MySQL — ver §11): tabela genérica
+  `sync_records` (não espelho 1:1) — um módulo novo só declara `syncTables`, o `cloud/`
+  não precisa de migration nem deploy novo. Autenticação mínima por
+  `company_uuid` + `license_key` (o mesmo já guardado em `license` — sessão/JWT de
+  verdade fica para a 6b).
+- **`machineId()` aceita override via `KATSU_MACHINE_ID`** (env var) — necessário para
+  testar múltiplas "máquinas" na mesma máquina física de desenvolvimento; também útil
+  para VMs clonadas de um template que precisem de identidade distinta.
+- **Teste de ponta a ponta:** `src/tests/fase6a.ts` (`npm run test:fase6a`) sobe o
+  `cloud/` + duas instâncias do Katsu como processos filhos (o Core mantém uma única
+  conexão SQLite por processo — não dá para simular duas máquinas no mesmo processo),
+  comunicando-se só por HTTP. Requer `docker compose -f cloud/docker-compose.yml up -d`
+  e `npm run cloud:install && CLOUD_DB_PORT=3307 npm run cloud:migrate` antes.
 
 ---
 
@@ -239,7 +296,9 @@ Escopo: clientes, assinaturas, licenças, máquinas, sincronizações, financeir
 ## 11. Pontos em aberto (decidir antes de codar)
 
 - Nome definitivo dos identificadores comerciais (Katsu Business? Katsu Platform?).
-- Banco da nuvem: Postgres (recomendado) vs. MySQL (você já domina).
+- ~~Banco da nuvem: Postgres (recomendado) vs. MySQL~~ → **DECIDIDO (2026-07-07): MySQL**
+  (familiaridade do usuário). Servidor em `cloud/` na raiz do repo, deploy independente
+  do Electron app; local via Docker (`cloud/docker-compose.yml`).
 - ~~Biblioteca de hash~~ → **DECIDIDO (2026-07-05): bcrypt** (implementado via `bcryptjs`, API idêntica, sem dependência nativa — troca por `bcrypt` nativo é drop-in se necessário).
 - ~~Estratégia de views~~ → **DECIDIDO (2026-07-05): EJS + Alpine.js** (server-rendered, sem build step, Alpine servido localmente para manter offline-first).
 - Modelo de precificação por módulo (assinatura mensal, licença perpétua, híbrido).

@@ -4,6 +4,7 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { validateDocument } from '../../shared/documents';
+import { machineId } from '../../core/license/service';
 
 /**
  * Fábrica de CRUD para cadastros simples do commercial (clientes, fornecedores).
@@ -46,8 +47,10 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
     }
     const values = cfg.fields.map((f) => body[f] ?? null);
     const info = db()
-      .prepare(`INSERT INTO ${cfg.table} (${cfg.fields.join(', ')}, uuid) VALUES (${cfg.fields.map(() => '?').join(', ')}, ?)`)
-      .run(...values, randomUUID());
+      .prepare(
+        `INSERT INTO ${cfg.table} (${cfg.fields.join(', ')}, uuid, origin_machine) VALUES (${cfg.fields.map(() => '?').join(', ')}, ?, ?)`,
+      )
+      .run(...values, randomUUID(), machineId());
     const created = get(String(info.lastInsertRowid));
     audit(req, 'criar', cfg.entity, Number(info.lastInsertRowid), null, created);
     res.status(201).json(created);
@@ -67,8 +70,10 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
     }
     const sets = cfg.fields.map((f) => `${f} = COALESCE(?, ${f})`).join(', ');
     db()
-      .prepare(`UPDATE ${cfg.table} SET ${sets}, active = COALESCE(?, active), updated_at = datetime('now') WHERE id = ?`)
-      .run(...cfg.fields.map((f) => body[f] ?? null), body.active != null ? (body.active ? 1 : 0) : null, id);
+      .prepare(
+        `UPDATE ${cfg.table} SET ${sets}, active = COALESCE(?, active), updated_at = datetime('now'), origin_machine = ? WHERE id = ?`,
+      )
+      .run(...cfg.fields.map((f) => body[f] ?? null), body.active != null ? (body.active ? 1 : 0) : null, machineId(), id);
     const after = get(id);
     audit(req, 'editar', cfg.entity, id, before, after);
     res.json(after);

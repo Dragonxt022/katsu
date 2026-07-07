@@ -220,13 +220,19 @@ function updateRow(req: Request, spec: RegisteredSyncTable, local: Record<string
   const localUpdatedAt = String(local.updated_at);
   const localSyncedAt = local.synced_at != null ? String(local.synced_at) : null;
   const localWasDirty = localSyncedAt === null || localUpdatedAt > localSyncedAt;
+  // Edição concorrente: o último autor local difere de quem escreveu o valor que está chegando.
+  // Complementa `localWasDirty` — sozinho, `synced_at` não sobrevive a rodadas de sync já
+  // confirmadas antes de o conflito real aparecer (a própria máquina já marcou seu push como
+  // sincronizado antes de saber da edição concorrente de outra máquina).
+  const localOrigin = local.origin_machine != null ? String(local.origin_machine) : null;
+  const differentAuthor = localOrigin != null && localOrigin !== rec.originMachine;
 
   const incomingWins =
     rec.updatedAt > localUpdatedAt ||
     (rec.updatedAt === localUpdatedAt && rec.originMachine > String(local.origin_machine ?? ''));
   if (!incomingWins) return; // local vence; será enviado no próximo push
 
-  if (localWasDirty) {
+  if (localWasDirty || differentAuthor) {
     audit(req, 'sync.conflict', spec.table, localId, local, rec.payload);
   }
   const values = payloadToRowValues(spec, rec.payload);
@@ -276,7 +282,6 @@ function applyIncomingBatch(req: Request, records: IncomingRecord[]): void {
           next.push(rec);
           lastError.set(rec.uuid, e.message);
         } else {
-          console.error(`[sync] falha ao aplicar ${rec.entityType} uuid=${rec.uuid}:`, e, JSON.stringify(rec.payload));
           throw e;
         }
       }

@@ -131,6 +131,7 @@ async function main(): Promise<void> {
       KATSU_DB_PATH: path.join(SCRATCH, 'machineA.db'),
       KATSU_PORT: String(portA),
       KATSU_SYNC_SERVER_URL: cloudUrl,
+      KATSU_MACHINE_ID: 'test-machine-a',
     }),
   };
   const b: Machine = {
@@ -140,6 +141,7 @@ async function main(): Promise<void> {
       KATSU_DB_PATH: path.join(SCRATCH, 'machineB.db'),
       KATSU_PORT: String(portB),
       KATSU_SYNC_SERVER_URL: cloudUrl,
+      KATSU_MACHINE_ID: 'test-machine-b',
     }),
   };
   await Promise.all([waitForHealth(`${a.base}/api/health`), waitForHealth(`${b.base}/api/health`)]);
