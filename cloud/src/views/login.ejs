@@ -3,20 +3,26 @@
 <head>
   <meta charset="utf-8">
   <title>Katsu Cloud — Login</title>
+  <%- include('partials/styles') %>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 360px; margin: 80px auto; }
-    input { display: block; width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box; }
-    button { padding: 8px 16px; }
-    .error { color: #b00020; margin-bottom: 12px; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-card { width: 100%; max-width: 360px; }
+    .login-card .brand { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 1.2rem; margin-bottom: 24px; }
+    .login-card .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--primary); }
+    .login-card button { width: 100%; justify-content: center; }
   </style>
 </head>
 <body>
-  <h1>Katsu Cloud</h1>
-  <% if (error) { %><p class="error"><%= error %></p><% } %>
-  <form method="post" action="/admin/login">
-    <input type="text" name="username" placeholder="usuário" required>
-    <input type="password" name="password" placeholder="senha" required>
-    <button type="submit">Entrar</button>
-  </form>
+  <div class="card login-card">
+    <div class="brand"><span class="dot"></span> Katsu Cloud</div>
+    <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
+    <form method="post" action="/admin/login">
+      <label>Usuário</label>
+      <input type="text" name="username" required autofocus>
+      <label>Senha</label>
+      <input type="password" name="password" required>
+      <button type="submit" class="btn">Entrar</button>
+    </form>
+  </div>
 </body>
 </html>

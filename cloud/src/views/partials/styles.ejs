@@ -1,0 +1,163 @@
+<style>
+  :root {
+    --bg: #f1f3f9;
+    --surface: #ffffff;
+    --border: #e2e5ee;
+    --text: #1c2230;
+    --muted: #6b7280;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --primary-soft: #eef0fe;
+    --danger: #dc2626;
+    --danger-soft: #fdecec;
+    --success: #16a34a;
+    --success-soft: #e9f9ef;
+    --warning: #b45309;
+    --warning-soft: #fef3e0;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+  }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+  }
+  .navbar .brand {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .navbar .brand:hover { text-decoration: none; }
+  .navbar .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); display: inline-block; }
+  .navbar nav { display: flex; align-items: center; gap: 4px; margin-left: 32px; flex: 1; }
+  .navbar nav a {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+  }
+  .navbar nav a:hover { background: var(--primary-soft); text-decoration: none; color: var(--primary); }
+  .navbar nav a.active { background: var(--primary-soft); color: var(--primary); }
+  .navbar .right { display: flex; align-items: center; gap: 12px; }
+
+  .page { max-width: 1080px; margin: 32px auto; padding: 0 24px; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  .page-header h1 { font-size: 1.4rem; margin: 0; }
+  .breadcrumb { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1.05rem; margin: 0 0 16px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-header h2 { margin: 0; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  tbody tr:hover { background: #fafbff; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.empty-state { color: var(--muted); text-align: center; padding: 24px 8px; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.pendente { background: var(--warning-soft); color: var(--warning); }
+  .badge.paga { background: var(--success-soft); color: var(--success); }
+  .badge.cancelada { background: var(--border); color: var(--muted); }
+  .badge.plan { background: var(--primary-soft); color: var(--primary); }
+  .badge.money-pending { background: var(--danger-soft); color: var(--danger); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn:hover { background: var(--primary-hover); }
+  .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn.secondary:hover { background: #f4f5f9; }
+  .btn.danger { background: var(--surface); color: var(--danger); border-color: #f3c8c8; }
+  .btn.danger:hover { background: var(--danger-soft); }
+  .btn.small { padding: 5px 11px; font-size: 0.8rem; }
+
+  form.inline { display: inline; }
+
+  label { display: block; font-weight: 600; font-size: 0.82rem; margin-bottom: 6px; color: var(--text); }
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"] {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    background: #fff;
+  }
+  input:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+  .field-hint { font-size: 0.78rem; color: var(--muted); margin: -12px 0 16px; }
+
+  .key-reveal {
+    background: var(--warning-soft);
+    border: 1px solid #f0d9a8;
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+  }
+  .key-reveal code { font-size: 1.05rem; user-select: all; }
+
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 20px 50px rgba(20, 20, 40, 0.25);
+  }
+  dialog::backdrop { background: rgba(20, 22, 35, 0.45); }
+  dialog .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+  dialog .modal-header h2 { margin: 0; font-size: 1.05rem; }
+  dialog .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); line-height: 1; }
+  dialog .modal-body { padding: 20px 22px; }
+  dialog .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+  .stat-row { display: flex; gap: 32px; flex-wrap: wrap; }
+  .stat { min-width: 160px; }
+  .stat .value { font-size: 1.3rem; font-weight: 700; }
+  .stat .label { font-size: 0.8rem; color: var(--muted); }
+
+  .error-banner { background: var(--danger-soft); color: var(--danger); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+</style>

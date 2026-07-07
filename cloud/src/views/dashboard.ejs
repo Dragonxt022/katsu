@@ -3,40 +3,62 @@
 <head>
   <meta charset="utf-8">
   <title>Katsu Cloud — Empresas</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 40px auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; }
-    .pending { color: #b00020; }
-  </style>
+  <%- include('partials/styles') %>
 </head>
 <body>
-  <div class="top-bar">
-    <h1>Empresas</h1>
-    <div>
-      <a href="/admin/companies/new">+ Nova empresa</a>
-      &nbsp;|&nbsp;
-      <form method="post" action="/admin/logout" style="display:inline"><button type="submit">Sair</button></form>
+  <%- include('partials/navbar', { active: 'dashboard' }) %>
+
+  <div class="page">
+    <div class="page-header">
+      <h1>Empresas</h1>
+      <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+    </div>
+
+    <div class="card" style="padding: 0;">
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente (R$)</th></tr>
+        </thead>
+        <tbody>
+          <% companies.forEach(function(c) { %>
+          <tr>
+            <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
+            <td><% if (c.plan) { %><span class="badge plan"><%= c.plan %></span><% } else { %>—<% } %></td>
+            <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
+            <td><%= c.valid_until || '—' %></td>
+            <td><%= c.sync_count %></td>
+            <td><%= c.last_activity || 'nunca' %></td>
+            <td><% if (c.pending_cents > 0) { %><span class="badge money-pending"><%= (c.pending_cents / 100).toFixed(2) %></span><% } else { %><%= (c.pending_cents / 100).toFixed(2) %><% } %></td>
+          </tr>
+          <% }) %>
+          <% if (!companies.length) { %>
+          <tr><td colspan="7" class="empty-state">Nenhuma empresa cadastrada ainda.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
     </div>
   </div>
-  <table>
-    <thead>
-      <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente</th></tr>
-    </thead>
-    <tbody>
-      <% companies.forEach(function(c) { %>
-      <tr>
-        <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
-        <td><%= c.plan || '—' %></td>
-        <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
-        <td><%= c.valid_until || '—' %></td>
-        <td><%= c.sync_count %></td>
-        <td><%= c.last_activity || 'nunca' %></td>
-        <td class="<%= c.pending_cents > 0 ? 'pending' : '' %>"><%= (c.pending_cents / 100).toFixed(2) %></td>
-      </tr>
-      <% }) %>
-    </tbody>
-  </table>
+
+  <dialog id="modal-new-company">
+    <form method="post" action="/admin/companies">
+      <div class="modal-header">
+        <h2>Nova empresa</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-company').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome</label>
+        <input type="text" name="name" required autofocus>
+        <label>Plano</label>
+        <input type="text" name="plan" placeholder="ex.: basico">
+        <label>Módulos</label>
+        <input type="text" name="modules" placeholder="ex.: commercial,finance,store">
+        <p class="field-hint">Separados por vírgula — vazio significa sem restrição de módulos.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-company').close()">Cancelar</button>
+          <button type="submit" class="btn">Criar empresa</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

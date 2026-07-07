@@ -92,10 +92,6 @@ router.get('/', requireAdminAuth, async (_req, res) => {
   res.render('dashboard', { companies });
 });
 
-router.get('/companies/new', requireAdminAuth, (_req, res) => {
-  res.render('company-form', {});
-});
-
 router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
   const { name, plan, modules } = req.body ?? {};
   const companyUuid = randomUUID();
