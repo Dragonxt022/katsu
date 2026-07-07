@@ -1,12 +1,30 @@
 import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
-import { runBackup, restoreBackup, listBackups } from './service';
+import { runBackup, restoreBackup, listBackups, listCloudBackups, downloadCloudBackup } from './service';
 
 const router = Router();
 
 router.get('/', requirePermission('backup.view'), (_req, res) => {
   res.json(listBackups());
+});
+
+router.get('/cloud', requirePermission('backup.view'), async (_req, res) => {
+  try {
+    res.json(await listCloudBackups());
+  } catch (e) {
+    res.status(502).json({ error: (e as Error).message });
+  }
+});
+
+router.post('/cloud/:uuid/download', requirePermission('backup.restore'), async (req, res) => {
+  try {
+    const result = await downloadCloudBackup(String(req.params.uuid));
+    audit(req, 'backup_baixar_nuvem', 'backup', result.id, null, result);
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(502).json({ error: (e as Error).message });
+  }
 });
 
 router.post('/', requirePermission('backup.run'), async (req, res) => {

@@ -185,7 +185,7 @@ Dividida em sub-fases sequenciais e testáveis (mesmo padrão da Fase 5):
   Docker para dev/teste. Ver §6 para o contrato e os desvios conscientes adotados.
 - **6b — Licenciamento remoto + módulos habilitados por plano** ✅ implementado e
   testado (`npm run test:fase6b`). Ver §7 para o desenho.
-- 6c — Backup em nuvem, upload do `.gz` gerado pela Fase 1 (pendente).
+- **6c — Backup em nuvem** ✅ implementado e testado (`npm run test:fase6c`). Ver §8.
 - 6d — Painel administrativo VPS (pendente).
 
 ### Fase 7 — IA e ecossistema
@@ -300,6 +300,30 @@ O servidor mantém, por empresa: licença → módulos habilitados → plano →
 - **Automático:** diário às 23:00 → compacta o SQLite → envia à nuvem (se houver assinatura).
 - **Sem assinatura:** backup local direcionável (Documentos, pendrive, HD).
 - Restauração validada por checksum.
+
+### Fase 6c — o que foi implementado
+
+- **Upload automático** (`src/core/backup/service.ts`, dentro de `runBackup()`): sempre
+  que houver `company_uuid`/`license_key` configurados (`getLicenseCredentials()` — a
+  leitura mais simples de "há assinatura" disponível hoje; plano pago vs. gratuito não
+  existe ainda), o `.gz` recém-gerado sobe para o `cloud/` em best-effort — falha de
+  rede não compromete o backup local, que já aconteceu primeiro. Sem licença configurada
+  (modo dev), nada muda: comportamento idêntico ao da Fase 1.
+- **`cloud/`**: nova tabela `cloud_backups` (metadados) + arquivo em disco local do
+  próprio serviço (`cloud/storage/backups/<company_uuid>/<uuid>.gz`) — mesmo raciocínio
+  "simples agora, trocável depois" da 6a (object storage de verdade fica para quando
+  houver necessidade real de volume). Novo router `cloud/src/routes/backup.ts`:
+  `POST /api/backup/upload` (corpo binário, `express.raw()` só nessa rota, confere sha256
+  recebido contra o header antes de aceitar), `GET /api/backup` (lista), `GET /api/backup/:uuid/download`.
+- **Recuperação de desastre** (a diferença real frente à Fase 6a): o motor de sync só
+  replica tabelas de negócio; o backup é um dump binário completo do SQLite — inclui
+  `users`, `roles`, `permissions`, `settings`, `audit_logs`. `downloadCloudBackup()`
+  baixa e registra localmente (`trigger = 'nuvem'`); a restauração em si reaproveita
+  `restoreBackup(id)`, que já existia — sem duplicar a lógica de checksum-e-sobrescrita.
+  Uma instalação nova (nunca viu a empresa) consegue restaurar o estado inteiro de outra
+  máquina, inclusive logar com o mesmo usuário/senha (testado em `fase6c.ts`).
+- Novas rotas no Core: `GET /api/backup/cloud` e `POST /api/backup/cloud/:uuid/download`
+  (mesmas permissões já existentes, `backup.view`/`backup.restore` — nenhuma nova).
 
 ---
 

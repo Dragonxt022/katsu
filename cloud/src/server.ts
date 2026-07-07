@@ -1,6 +1,7 @@
 import express from 'express';
 import syncRoutes from './routes/sync';
 import licenseRoutes from './routes/license';
+import backupRoutes from './routes/backup';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -10,6 +11,7 @@ export function createCloudServer() {
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'katsu-cloud' }));
   app.use('/api/sync', syncRoutes);
   app.use('/api/license', licenseRoutes);
+  app.use('/api/backup', backupRoutes);
   return app;
 }
 
