@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Katsu Cloud — <%= company.name || company.company_uuid %></title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; }
+    section { margin-bottom: 32px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+    input { display: block; width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box; }
+    label { font-weight: bold; font-size: 0.9em; }
+    .key-reveal { background: #fff8dc; border: 1px solid #e0c34a; padding: 12px; margin-bottom: 20px; }
+    .key-reveal code { font-size: 1.1em; }
+    .pendente { color: #b00020; }
+    .paga { color: #2e7d32; }
+    .cancelada { color: #999; }
+    form.inline { display: inline; }
+  </style>
+</head>
+<body>
+  <p><a href="/admin">&larr; Empresas</a></p>
+
+  <% if (typeof revealedLicenseKey !== 'undefined' && revealedLicenseKey) { %>
+    <div class="key-reveal">
+      <strong>Chave de licença (mostrada uma única vez — copie agora):</strong><br>
+      <code><%= revealedLicenseKey %></code>
+    </div>
+  <% } %>
+
+  <h1><%= company.name || company.company_uuid %></h1>
+  <p><small><%= company.company_uuid %></small></p>
+
+  <section>
+    <h2>Dados</h2>
+    <form method="post" action="/admin/companies/<%= company.company_uuid %>">
+      <label>Nome</label>
+      <input type="text" name="name" value="<%= company.name || '' %>">
+      <label>Plano</label>
+      <input type="text" name="plan" value="<%= company.plan || '' %>">
+      <label>Módulos (separados por vírgula — vazio = sem restrição)</label>
+      <input type="text" name="modules" value="<%= company.modules ? company.modules.join(',') : '' %>">
+      <label>Validade</label>
+      <input type="date" name="validUntil" value="<%= company.valid_until ? String(company.valid_until).slice(0,10) : '' %>">
+      <button type="submit">Salvar</button>
+    </form>
+    <form method="post" action="/admin/companies/<%= company.company_uuid %>/rotate-key">
+      <button type="submit">Gerar nova chave de licença</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Sincronização</h2>
+    <p>Total de registros: <%= syncStats.total %> — última atividade: <%= syncStats.last_activity || 'nunca' %></p>
+  </section>
+
+  <section>
+    <h2>Backups na nuvem</h2>
+    <table>
+      <thead><tr><th>UUID</th><th>Máquina</th><th>Tamanho</th><th>Quando</th></tr></thead>
+      <tbody>
+        <% backups.forEach(function(b) { %>
+        <tr><td><%= b.uuid %></td><td><%= b.machine_id %></td><td><%= (b.size_bytes/1024).toFixed(1) %> KB</td><td><%= b.created_at %></td></tr>
+        <% }) %>
+        <% if (!backups.length) { %><tr><td colspan="4">Nenhum backup ainda.</td></tr><% } %>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Cobranças</h2>
+    <table>
+      <thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th></th></tr></thead>
+      <tbody>
+        <% charges.forEach(function(ch) { %>
+        <tr>
+          <td><%= ch.description %></td>
+          <td><%= (ch.amount_cents/100).toFixed(2) %></td>
+          <td><%= String(ch.due_date).slice(0,10) %></td>
+          <td class="<%= ch.status %>"><%= ch.status %></td>
+          <td><%= ch.paid_at || '—' %></td>
+          <td>
+            <% if (ch.status === 'pendente') { %>
+              <form class="inline" method="post" action="/admin/companies/<%= company.company_uuid %>/charges/<%= ch.id %>/pay"><button type="submit">Marcar paga</button></form>
+              <form class="inline" method="post" action="/admin/companies/<%= company.company_uuid %>/charges/<%= ch.id %>/cancel"><button type="submit">Cancelar</button></form>
+            <% } %>
+          </td>
+        </tr>
+        <% }) %>
+        <% if (!charges.length) { %><tr><td colspan="6">Nenhuma cobrança ainda.</td></tr><% } %>
+      </tbody>
+    </table>
+    <h3>Nova cobrança</h3>
+    <form method="post" action="/admin/companies/<%= company.company_uuid %>/charges">
+      <label>Descrição</label>
+      <input type="text" name="description" required>
+      <label>Valor (R$)</label>
+      <input type="number" step="0.01" name="amount" required>
+      <label>Vencimento</label>
+      <input type="date" name="dueDate" required>
+      <button type="submit">Registrar cobrança</button>
+    </form>
+  </section>
+</body>
+</html>

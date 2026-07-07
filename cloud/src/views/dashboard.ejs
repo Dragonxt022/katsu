@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Katsu Cloud — Empresas</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 40px auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; }
+    .pending { color: #b00020; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1>Empresas</h1>
+    <div>
+      <a href="/admin/companies/new">+ Nova empresa</a>
+      &nbsp;|&nbsp;
+      <form method="post" action="/admin/logout" style="display:inline"><button type="submit">Sair</button></form>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente</th></tr>
+    </thead>
+    <tbody>
+      <% companies.forEach(function(c) { %>
+      <tr>
+        <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
+        <td><%= c.plan || '—' %></td>
+        <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
+        <td><%= c.valid_until || '—' %></td>
+        <td><%= c.sync_count %></td>
+        <td><%= c.last_activity || 'nunca' %></td>
+        <td class="<%= c.pending_cents > 0 ? 'pending' : '' %>"><%= (c.pending_cents / 100).toFixed(2) %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</body>
+</html>

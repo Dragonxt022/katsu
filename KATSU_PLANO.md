@@ -186,7 +186,8 @@ Dividida em sub-fases sequenciais e testáveis (mesmo padrão da Fase 5):
 - **6b — Licenciamento remoto + módulos habilitados por plano** ✅ implementado e
   testado (`npm run test:fase6b`). Ver §7 para o desenho.
 - **6c — Backup em nuvem** ✅ implementado e testado (`npm run test:fase6c`). Ver §8.
-- 6d — Painel administrativo VPS (pendente).
+- **6d — Painel administrativo (MVP)** ✅ implementado e testado (`npm run test:fase6d`).
+  Ver §9. **Fase 6 completa.**
 
 ### Fase 7 — IA e ecossistema
 **Objetivo:** plataforma aberta.
@@ -330,6 +331,41 @@ O servidor mantém, por empresa: licença → módulos habilitados → plano →
 ## 9. Painel Administrativo (VPS) — praticamente outro sistema
 
 Escopo: clientes, assinaturas, licenças, máquinas, sincronizações, financeiro (boletos/PIX), atualizações, módulos, logs, suporte, downloads.
+
+### Fase 6d — o que foi implementado (MVP)
+
+O escopo completo acima é grande demais para uma sub-fase — nada de billing/PIX/
+boleto existia em nenhuma parte do projeto. **Recorte confirmado com o usuário:**
+gestão de empresas (substitui a CLI `provision-company.ts`), visibilidade de
+sincronizações/backups, e um controle **manual** de cobrança (sem gateway/PIX/boleto
+de verdade — só registro e baixa manual). Emissão real de boleto/PIX, atualizações de
+módulo, central de suporte e downloads ficam para uma etapa futura.
+
+- **Segunda camada de autenticação**: o `cloud/` já autenticava *instalações*
+  (`company_uuid` + `license_key`, Fase 6a). Esta sub-fase adiciona autenticação de
+  **operador humano** do painel — tabela `admin_users` (bcrypt, provisionada via CLI
+  `cloud/src/provision-admin.ts`, mesmo padrão de `provision-company.ts`) e sessão **em
+  memória** (`cloud/src/adminAuth.ts`) — decisão de escopo: o painel reinicia raramente
+  e perder sessões num restart é aceitável; evita mais uma tabela só para isso. Cookie
+  lido via regex manual em `req.headers.cookie`, mesmo padrão de
+  `src/core/auth/middleware.ts` no app principal.
+- **Views EJS server-rendered**, sem framework de front — é um CRUD simples, forms HTML
+  puros bastam (`cloud/src/views/*.ejs`): dashboard (empresas + sync + pendências),
+  formulário de empresa, detalhe (edição + backups + cobranças).
+- **`companies.modules`/`plan`/`valid_until` editáveis pelo painel** — mesma tabela e
+  mesmo endpoint `GET /api/license/validate` que o motor de sync já consumia desde a
+  6b; painel e API sempre leem/escrevem o mesmo dado, sem duplicar estado.
+- **Cobrança manual** (`charges`, migration `0005_charges`): descrição, valor,
+  vencimento, status (`pendente`/`paga`/`cancelada`), `paid_at`. Sem PIX/boleto/gateway
+  — o admin registra e dá baixa na mão. Dashboard mostra total pendente por empresa.
+- Chave de licença é gerada e mostrada em texto puro **uma única vez** (na criação da
+  empresa ou ao girar a chave) — só o hash fica gravado, mesmo modelo de
+  `license_key_hash` já usado desde a 6a.
+
+**Fase 6 (Nuvem) está completa**: motor de sincronização (6a), licenciamento remoto e
+módulos por plano (6b), backup em nuvem (6c) e painel administrativo MVP (6d) — todos
+implementados e testados (`test:fase6a` a `test:fase6d`). Próximo item do roadmap:
+Fase 7 (IA e ecossistema).
 
 ---
 
